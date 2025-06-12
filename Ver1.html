@@ -1,0 +1,2830 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メモアプリ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- SheetJS CDN for XLSX export -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script>
+        // MathJax の設定: インライン数式を $...$ で、ブロック数式を $$...$$ で認識させる
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <style>
+        /* Google Fonts - Inter */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f0f0; /* 全体の背景色 */
+            transition: background-color 0.3s ease, color 0.3s ease; /* テーマ変更時のアニメーション */
+            /* font-size: var(--base-font-size); /* CSS変数で文字サイズを制御 - html要素に移動 */
+        }
+
+        /* ダークテーマ用スタイル */
+        body.dark-theme {
+            background-color: #1a202c; /* bg-gray-900 */
+            color: #e2e8f0; /* text-gray-200 */
+        }
+        body.dark-theme .bg-white {
+            background-color: #2d3748; /* bg-gray-800 */
+        }
+        body.dark-theme .text-gray-800 {
+            color: #e2e8f0;
+        }
+        body.dark-theme .text-gray-700 {
+            color: #cbd5e0;
+        }
+        body.dark-theme .text-gray-600 {
+            color: #a0aec0;
+        }
+        body.dark-theme .border-gray-200 {
+            border-color: #4a5568; /* border-gray-700 */
+        }
+        body.dark-theme .border-gray-300 {
+            border-color: #4a5568; /* border-gray-700 */
+        }
+        body.dark-theme input,
+        body.dark-theme textarea,
+        body.dark-theme select {
+            background-color: #4a5568; /* bg-gray-700 */
+            color: #e2e8f0;
+            border-color: #616e7f; /* border-gray-600 */
+        }
+        body.dark-theme input::placeholder,
+        body.dark-theme textarea::placeholder {
+            color: #a0aec0;
+        }
+        body.dark-theme .bg-gray-50 {
+            background-color: #4a5568; /* bg-gray-700 */
+        }
+        body.dark-theme .bg-gray-100 {
+            background-color: #2d3748; /* bg-gray-800 */
+        }
+        body.dark-theme .bg-gray-200 {
+            background-color: #4a5568; /* bg-gray-700 */
+        }
+        body.dark-theme .hover\\:bg-gray-300:hover {
+            background-color: #616e7f; /* hover:bg-gray-600 */
+        }
+        body.dark-theme .markdown-content-display pre {
+            background-color: #4a5568; /* bg-gray-700 */
+        }
+        body.dark-theme .markdown-content-display code {
+            background-color: #616e7f; /* bg-gray-600 */
+        }
+
+        /* Markdown行間調整 */
+        .markdown-content-display {
+            line-height: var(--markdown-line-height); /* CSS変数でマークダウン行間を制御 */
+        }
+        /* Markdownコンテンツ内の要素にも行間を強制的に継承させる */
+        .markdown-content-display p,
+        .markdown-content-display ul,
+        .markdown-content-display ol,
+        .markdown-content-display li,
+        .markdown-content-display h1,
+        .markdown-content-display h2,
+        .markdown-content-display h3,
+        .markdown-content-display h4,
+        .markdown-content-display h5,
+        .markdown-content-display h6,
+        .markdown-content-display pre,
+        .markdown-content-display code,
+        .markdown-content-display blockquote {
+            line-height: inherit; /* 親から行間を継承 */
+        }
+
+
+        /* カスタムスクロールバーのスタイル */
+        .scrollable-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollable-content::-webkit-scrollbar-track {
+            background: #e0e0e0;
+            border-radius: 10px;
+        }
+        .scrollable-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .scrollable-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        body.dark-theme .scrollable-content::-webkit-scrollbar-track {
+            background: #2d3748; /* bg-gray-800 */
+        }
+        body.dark-theme .scrollable-content::-webkit-scrollbar-thumb {
+            background: #a0aec0; /* text-gray-400 */
+        }
+        body.dark-theme .scrollable-content::-webkit-scrollbar-thumb:hover {
+            background: #cbd5e0; /* text-gray-300 */
+        }
+
+        /* ホバー時のテキスト表示用 (汎用化) */
+        .group .button-text {
+            width: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: width 0.3s ease-in-out, opacity 0.3s ease-in-out, margin-left 0.3s ease-in-out;
+        }
+        .group:hover .button-text {
+            width: auto; /* テキストの幅に合わせて広がる */
+            opacity: 1;
+            margin-left: 8px; /* アイコンとテキストの間隔 */
+        }
+
+        /* タグ表示の調整 */
+        .note-card .tag-display-on-card {
+            display: flex; /* Flexboxを常に適用 */
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.25rem; /* Tailwind's gap-1 */
+            margin-left: 0.5rem; /* Tailwind's ml-2 */
+            max-width: 50%; /* Adjust as needed */
+        }
+
+        /* グリッドレイアウト時にタグを非表示にする */
+        #notesGrid.md\\:grid-cols-2 .note-card .tag-display-on-card,
+        #notesGrid.lg\\:grid-cols-3 .note-card .tag-display-on-card {
+            display: none;
+        }
+        /* シングルカラムレイアウト時にタグを表示する */
+        #notesGrid.grid-cols-1 .note-card .tag-display-on-card {
+            display: flex;
+        }
+
+        /* スライダーのトラックとサムのスタイル調整 */
+        input[type="range"] {
+            -webkit-appearance: none; /* Webkit browsers */
+            appearance: none;
+            background: #d1d5db; /* Default light theme track color (gray-300) */
+            height: 8px;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        /* スライダーのサム（つまみ）のスタイル */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6; /* Default light theme thumb color (blue-500) */
+            border-radius: 50%;
+            cursor: grab;
+            transition: background 0.3s ease;
+            margin-top: -6px; /* Adjust to center the thumb vertically */
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #3b82f6; /* Default light theme thumb color (blue-500) */
+            border-radius: 50%;
+            cursor: grab;
+            transition: background 0.3s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:active,
+        input[type="range"]::-moz-range-thumb:active {
+            cursor: grabbing;
+        }
+
+        /* ダークテーマ時のスライダーのトラックとサムのスタイル */
+        body.dark-theme input[type="range"] {
+            background: #2d3748; /* Darker track color (bg-gray-800) */
+        }
+
+        body.dark-theme input[type="range"]::-webkit-slider-thumb {
+            background: #616e7f; /* Darker thumb color (bg-gray-600) */
+        }
+
+        body.dark-theme input[type="range"]::-moz-range-thumb {
+            background: #616e7f; /* Darker thumb color */
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen items-center justify-center p-4 sm:p-6 md:p-8 bg-gray-100">
+    <div class="w-full max-w-4xl bg-white rounded-xl shadow-lg flex flex-col h-[90vh] overflow-hidden">
+        <header class="flex flex-col p-4 sm:p-5 border-b border-gray-200 bg-white shadow-sm flex-shrink-0">
+            <!-- メモブックタイトル表示エリア -->
+            <div id="memoBookTitleDisplay" class="w-full text-center text-lg font-bold text-gray-800 mb-4">
+                私のメモブック
+            </div>
+            <div class="flex items-center justify-between w-full mb-4">
+                <div class="flex items-center space-x-2 sm:space-x-4 w-full md:w-auto relative">
+                    <div class="relative">
+                        <div id="filterButton" class="filter-icon w-8 h-8 sm:w-10 sm:h-10 p-2 rounded-full bg-gray-200 flex items-center justify-center cursor-pointer hover:bg-gray-300 transition-colors duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-filter text-gray-600">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                            </svg>
+                        </div>
+                        <div id="filterMenu" class="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-lg p-4 z-10 hidden">
+                            <div class="text-sm font-semibold text-gray-700 mb-2">検索範囲</div>
+                            <label class="flex items-center space-x-2 mb-2 cursor-pointer">
+                                <input type="radio" name="searchScope" value="both" checked class="form-radio text-blue-600">
+                                <span>両方</span>
+                            </label>
+                            <label class="flex items-center space-x-2 mb-2 cursor-pointer">
+                                <input type="radio" name="searchScope" value="title" class="form-radio text-blue-600">
+                                <span>メモタイトルのみ</span>
+                            </label>
+                            <label class="flex items-center space-x-2 mb-2 cursor-pointer">
+                                <input type="radio" name="searchScope" value="content" class="form-radio text-blue-600">
+                                <span>メモの内容のみ</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="searchScope" value="tags" class="form-radio text-blue-600">
+                                <span>タグのみ</span>
+                            </label>
+                        </div>
+                    </div>
+                    <input type="text" id="searchNotesInput" placeholder="メモを検索..." class="flex-grow p-2 sm:p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700">
+                </div>
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <button id="addNoteButton" class="group flex items-center bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-3 sm:py-2.5 sm:px-4 rounded-lg shadow-md transition-all duration-200 transform hover:scale-105 overflow-hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus flex-shrink-0">
+                            <path d="M12 5v14"/><path d="M5 12h14"/>
+                        </svg>
+                        <span class="button-text text-nowrap">メモを追加</span>
+                    </button>
+                    <button id="toggleLayoutButton" class="flex items-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-3 sm:py-2.5 sm:px-4 rounded-lg shadow-md transition-all duration-200 transform hover:scale-105">
+                        <svg id="layoutMultiIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-grid">
+                            <rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>
+                        </svg>
+                        <svg id="layoutSingleIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-list hidden">
+                            <rect width="7" height="7" x="3" y="3" rx="1"/><line x1="14" x2="21" y1="6" y2="6"/><line x1="14" x2="21" y1="12" y2="12"/><line x1="14" x2="21" y1="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="flex items-center justify-between w-full mt-2 pb-2">
+                <div class="flex items-center space-x-2">
+                    <button id="genreFilterToggleButton" class="group flex items-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-3 rounded-full shadow-sm transition-all duration-200 text-sm flex-shrink-0 overflow-hidden">
+                        <svg id="arrowUpIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-up"><path d="m18 15-6-6-6 6"/></svg>
+                        <svg id="arrowDownIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-down hidden"><path d="m6 9 6 6 6-6"/></svg>
+                        <span class="button-text text-nowrap">ジャンルフィルター</span>
+                    </button>
+                    <button id="clearGenreSelectionButton" class="group flex items-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-3 rounded-full shadow-sm transition-all duration-200 text-sm flex-shrink-0 overflow-hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x-circle flex-shrink-0">
+                            <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+                        </svg>
+                        <span class="button-text text-nowrap">選択解除</span>
+                    </button>
+                </div>
+                <button id="editGenresButton" class="group flex items-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-3 rounded-full shadow-sm transition-all duration-200 text-sm flex-shrink-0 overflow-hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil flex-shrink-0">
+                        <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                    </svg>
+                    <span class="button-text text-nowrap">ジャンルを編集</span>
+                </button>
+            </div>
+            <div id="genreFilterContentContainer" class="flex flex-col w-full mt-2">
+                <div id="mainGenreFilterContainer" class="flex flex-nowrap overflow-x-auto gap-2 justify-center sm:justify-start py-1"></div>
+                <div id="subGenreFilterContainer" class="flex flex-nowrap overflow-x-auto gap-2 justify-center sm:justify-start mt-2 pb-2"></div>
+            </div>
+        </header>
+
+        <main id="notesContainer" class="flex-grow p-4 sm:p-6 overflow-y-auto scrollable-content">
+            <div id="notesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                </div>
+        </main>
+
+        <footer class="flex justify-end p-4 sm:p-5 border-t border-gray-200 bg-white shadow-sm flex-shrink-0">
+            <button id="newMemoButton" class="group footer-button bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium p-3 px-5 rounded-full shadow-md transition-all duration-200 transform hover:scale-105 overflow-hidden flex items-center justify-center mr-3">
+                <i class="fas fa-file-alt text-xl flex-shrink-0"></i> <span class="button-text text-nowrap">新規作成</span>
+            </button>
+            <button id="loadXLSXButton" class="group footer-button bg-blue-500 hover:bg-blue-600 text-white font-medium p-3 px-5 rounded-full shadow-md transition-all duration-200 transform hover:scale-105 overflow-hidden flex items-center justify-center mr-3">
+                <i class="fas fa-folder-open text-xl flex-shrink-0"></i> <span class="button-text text-nowrap">読み込む</span>
+            </button>
+            <input type="file" id="xlsxFileInput" accept=".xlsx, .xls" class="hidden">
+            <button id="exportXLSXButton" class="group footer-button bg-purple-500 hover:bg-purple-600 text-white font-medium p-3 px-5 rounded-full shadow-md transition-all duration-200 transform hover:scale-105 overflow-hidden flex items-center justify-center mr-3">
+                <i class="fas fa-file-excel text-xl flex-shrink-0"></i> <span class="button-text text-nowrap">XLSX出力</span>
+            </button>
+            <button id="settingsButton" class="group footer-button bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium p-3 px-5 rounded-full shadow-md transition-all duration-200 transform hover:scale-105 overflow-hidden flex items-center justify-center">
+                <i class="fas fa-cog text-xl flex-shrink-0"></i> <span class="button-text text-nowrap">設定</span>
+            </button>
+        </footer>
+    </div>
+
+    <div id="noteModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-xl transform transition-all duration-300 ease-in-out overflow-y-auto max-h-[90vh] flex flex-col">
+            <!-- Header for Note Modal -->
+            <header class="p-4 sm:p-5 border-b border-gray-200 bg-white rounded-t-xl flex-shrink-0">
+                <h2 id="modalTitle" class="text-2xl font-bold text-gray-800">新しいメモを追加</h2>
+            </header>
+
+            <!-- Body for Note Modal -->
+            <div class="flex-grow p-6 overflow-y-auto scrollable-content">
+                <div class="mb-4">
+                    <label for="noteTitle" class="block text-gray-700 text-sm font-medium mb-2">タイトル</label>
+                    <input type="text" id="noteTitle" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="メモのタイトルを入力">
+                </div>
+                <div class="mb-6">
+                    <label for="noteContent" class="block text-gray-700 text-sm font-medium mb-2">内容</label>
+                    <textarea id="noteContent" class="w-full p-3 border border-gray-300 rounded-lg h-32 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="メモの内容を入力"></textarea>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">タグ</h3>
+                    <button id="addTagInputButton" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors duration-200 mb-4">
+                        タグを追加
+                    </button>
+                    <div id="dynamicTagInputs" class="space-y-4">
+                        </div>
+                </div>
+
+                <div class="mb-6">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="hideMainContentCheckbox" class="form-checkbox h-4 w-4 text-blue-600 rounded">
+                        <span class="text-gray-700 text-sm font-medium">メモ本文を詳細画面で非表示にする (メディアがある場合のみ有効)</span>
+                    </label>
+                </div>
+
+                <div class="border-t border-gray-200 pt-6 mt-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">メディア添付</h3>
+                    <button id="addMediaInputButton" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors duration-200 mb-4">
+                        メディアを追加
+                    </button>
+                    <div id="dynamicMediaInputs" class="space-y-4">
+                        </div>
+                </div>
+            </div>
+
+            <!-- Error message container for note modal -->
+            <div id="noteModalErrorContainer" class="text-red-500 text-sm px-6 pb-2"></div>
+
+            <!-- Footer for Note Modal -->
+            <footer class="flex justify-end p-4 sm:p-5 border-t border-gray-200 bg-white rounded-b-xl flex-shrink-0">
+                <button id="cancelNoteButton" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-sm transition-colors duration-200 mr-3">
+                    キャンセル
+                </button>
+                <button id="saveNoteButton" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors duration-200">
+                    保存
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="detailModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 ease-in-out flex flex-col max-h-[90vh]">
+            <header class="p-4 sm:p-5 border-b border-gray-200 bg-white rounded-t-xl flex-shrink-0">
+                <h2 id="detailModalTitle" class="text-2xl font-bold text-gray-800"></h2>
+            </header>
+
+            <div class="flex-grow p-6 overflow-y-auto scrollable-content">
+                <p id="detailModalContent" class="text-gray-700 mb-6 whitespace-pre-wrap"></p>
+                <div id="detailModalTags" class="flex flex-wrap gap-2 mb-6"></div>
+                <div id="detailMediaContainer" class="space-y-4 mb-6">
+                </div>
+                <div id="relatedNotesSection" class="mt-6 pt-4 border-t border-gray-200 hidden">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">関連メモ</h3>
+                    <div id="relatedNotesContainer" class="space-y-2 max-h-48 overflow-y-auto scrollable-content">
+                    </div>
+                </div>
+            </div>
+
+            <footer class="flex justify-end p-4 sm:p-5 border-t border-gray-200 bg-white rounded-b-xl flex-shrink-0">
+                <button id="closeDetailModalButton" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
+                    閉じる
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <div id="deleteConfirmModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm transform transition-all duration-300 ease-in-out">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">メモを削除しますか？</h2>
+            <p class="text-gray-700 mb-6">この操作は元に戻せません。</p>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelDeleteButton" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
+                    キャンセル
+                </button>
+                <button id="confirmDeleteButton" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors duration-200">
+                    削除
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="genreManagementModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300 ease-in-out flex flex-col max-h-[90vh]">
+            <!-- Header for Genre Management Modal -->
+            <header class="p-4 sm:p-5 border-b border-gray-200 bg-white rounded-t-xl flex-shrink-0 flex items-center justify-between">
+                <h2 class="text-2xl font-bold text-gray-800">ジャンルを管理</h2>
+                <button id="reloadTagsButton" class="group flex items-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1.5 px-3 rounded-lg shadow-sm transition-all duration-200 text-sm overflow-hidden">
+                    <i class="fas fa-sync-alt text-lg flex-shrink-0"></i> <!-- Changed to Font Awesome icon -->
+                    <span class="button-text text-nowrap ml-2">タグを再読み込み</span>
+                </button>
+            </header>
+
+            <!-- Body for Genre Management Modal -->
+            <div class="flex-grow p-6 overflow-y-auto scrollable-content">
+                <div class="mb-6 border-b pb-4">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">メインジャンルを追加</h3>
+                    <div class="flex flex-col">
+                        <div class="flex space-x-2">
+                            <input type="text" id="newMainGenreInput" class="flex-grow p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="新しいメインジャンル名">
+                            <button id="addMainGenreButton" class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors duration-200">
+                                追加
+                            </button>
+                        </div>
+                        <div id="mainGenreErrorContainer"></div>
+                    </div>
+                </div>
+
+                <div id="genreListContainer" class="space-y-4 mb-6">
+                    </div>
+            </div>
+
+            <!-- Footer for Genre Management Modal -->
+            <footer class="flex justify-end p-4 sm:p-5 border-t border-gray-200 bg-white rounded-b-xl flex-shrink-0">
+                <button id="closeGenreManagementModalButton" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
+                    閉じる
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- メインジャンル変更選択モーダル -->
+    <div id="changeMainGenreModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-2xl p-6 w-full max-w-xs transform transition-all duration-300 ease-in-out">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">メインジャンルを選択</h2>
+            <div id="mainGenreSelectContainer" class="space-y-2 mb-4">
+                <!-- メインジャンルのラジオボタンがここに動的に挿入されます -->
+            </div>
+            <div id="changeMainGenreErrorContainer" class="text-red-500 text-sm mb-2"></div>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelChangeMainGenreButton" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
+                    キャンセル
+                </button>
+                <button id="confirmChangeMainGenreButton" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors duration-200">
+                    変更
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 設定モーダル -->
+    <div id="settingsModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300 ease-in-out flex flex-col max-h-[90vh]">
+            <header class="p-4 sm:p-5 border-b border-gray-200 bg-white rounded-t-xl flex-shrink-0">
+                <h2 class="text-2xl font-bold text-gray-800">設定</h2>
+            </header>
+
+            <div class="flex-grow p-6 overflow-y-auto scrollable-content">
+                <div class="space-y-6">
+                    <!-- メモブックタイトル -->
+                    <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3">メモブックタイトル</h3>
+                        <input type="text" id="memoBookTitleInput" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700" placeholder="例: 私のメモ帳">
+                    </div>
+                    <!-- テーマ色の設定 -->
+                    <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3">テーマ色</h3>
+                        <div class="flex items-center space-x-4">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="theme" value="light" id="settingsLightTheme" class="form-radio h-4 w-4 text-blue-600">
+                                <span class="text-gray-700">ライトテーマ</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="theme" value="dark" id="settingsDarkTheme" class="form-radio h-4 w-4 text-blue-600">
+                                <span class="text-gray-700">ダークテーマ</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 文字サイズの変更 -->
+                    <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3">文字サイズ</h3>
+                        <div class="flex items-center space-x-4">
+                            <input type="range" id="settingsFontSizeSlider" min="14" max="20" value="16" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg">
+                            <span id="settingsFontSizeValue" class="text-gray-700 font-medium">16px</span>
+                        </div>
+                    </div>
+
+                    <!-- マークダウンメディアの行間サイズの変更 -->
+                    <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3">マークダウン行間</h3>
+                        <div class="flex items-center space-x-4">
+                            <input type="range" id="settingsLineHeightSlider" min="1.2" max="2.0" step="0.1" value="1.6" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg">
+                            <span id="settingsLineHeightValue" class="text-gray-700 font-medium">1.6</span>
+                        </div>
+                        <!-- 確認用サンプル -->
+                        <div id="markdownLineHeightSample" class="markdown-content-display mt-4 p-3 bg-gray-100 rounded-lg border border-gray-200 text-gray-700">
+                            <p>これはマークダウンのサンプルテキストです。</p>
+                            <ul>
+                                <li>項目1</li>
+                                <li>項目2</li>
+                            </ul>
+                            <p>この行間の変化を確認してください。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="flex justify-end p-4 sm:p-5 border-t border-gray-200 bg-white rounded-b-xl flex-shrink-0">
+                <button id="cancelSettingsButton" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-sm transition-colors duration-200 mr-3">
+                    キャンセル
+                </button>
+                <button id="saveSettingsButtonModal" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors duration-200">
+                    保存
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- 新規作成確認モーダル -->
+    <div id="newConfirmModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div class="modal-content bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm transform transition-all duration-300 ease-in-out">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">新規作成</h2>
+            <p class="text-gray-700 mb-6">現在のメモをXLSX形式で保存しますか？</p>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelNewButton" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-sm transition-colors duration-200">
+                    キャンセル
+                </button>
+                <button id="confirmSaveNewButton" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors duration-200">
+                    はい (保存して新規作成)
+                </button>
+                <button id="confirmDiscardNewButton" class="bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors duration-200">
+                    いいえ (破棄して新規作成)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM要素の取得
+        const filterButton = document.getElementById('filterButton');
+        const filterMenu = document.getElementById('filterMenu');
+        const searchScopeRadios = document.querySelectorAll('input[name="searchScope"]');
+        const addNoteButton = document.getElementById('addNoteButton');
+        const toggleLayoutButton = document.getElementById('toggleLayoutButton'); // レイアウト切り替えボタン
+        const layoutMultiIcon = document.getElementById('layoutMultiIcon'); // マルチカラムアイコン
+        const layoutSingleIcon = document.getElementById('layoutSingleIcon'); // シングルカラムアイコン
+
+        const noteModal = document.getElementById('noteModal'); // メモ追加/編集モーダル
+        const modalTitle = document.getElementById('modalTitle');
+        const cancelNoteButton = document.getElementById('cancelNoteButton');
+        const saveNoteButton = document.getElementById('saveNoteButton');
+        const noteTitleInput = document.getElementById('noteTitle');
+        const noteContentInput = document.getElementById('noteContent');
+        const addTagInputButton = document.getElementById('addTagInputButton'); // タグ追加ボタン (新規)
+        const dynamicTagInputs = document.getElementById('dynamicTagInputs'); // 動的タグ入力欄コンテナ (新規)
+        const noteModalErrorContainer = document.getElementById('noteModalErrorContainer'); // メモ編集エラー表示用
+
+        const hideMainContentCheckbox = document.getElementById('hideMainContentCheckbox'); // メモ本文表示オプション
+        const addMediaInputButton = document.getElementById('addMediaInputButton'); // メディア追加ボタン
+        const dynamicMediaInputs = document.getElementById('dynamicMediaInputs'); // 動的メディア入力欄コンテナ
+
+        const notesGrid = document.getElementById('notesGrid'); // メモカードを表示するグリッドコンテナ
+        const searchNotesInput = document.getElementById('searchNotesInput'); // 検索入力欄
+        const mainGenreFilterContainer = document.getElementById('mainGenreFilterContainer'); // メインジャンルフィルターコンテナ
+        const subGenreFilterContainer = document.getElementById('subGenreFilterContainer'); // サブジャンルフィルターコンテナ
+        const editGenresButton = document.getElementById('editGenresButton'); // ジャンル編集ボタン
+        const clearGenreSelectionButton = document.getElementById('clearGenreSelectionButton'); // ジャンル選択解除ボタン
+
+        // ジャンル管理モーダル関連のDOM要素
+        const genreManagementModal = document.getElementById('genreManagementModal');
+        const newMainGenreInput = document.getElementById('newMainGenreInput'); // 新しいメインジャンル入力
+        const addMainGenreButton = document.getElementById('addMainGenreButton'); // 新しいメインジャンル追加ボタン
+        const mainGenreErrorContainer = document.getElementById('mainGenreErrorContainer'); // メインジャンルエラー表示用
+        const genreListContainer = document.getElementById('genreListContainer');
+        const closeGenreManagementModalButton = document.getElementById('closeGenreManagementModalButton');
+        const reloadTagsButton = document.getElementById('reloadTagsButton'); // タグ再読み込みボタン (新規)
+
+
+        // メモ詳細表示モーダル関連のDOM要素
+        const detailModal = document.getElementById('detailModal');
+        const detailModalTitle = document.getElementById('detailModalTitle');
+        const detailModalContent = document.getElementById('detailModalContent');
+        const detailMediaContainer = document.getElementById('detailMediaContainer');
+        const detailModalTags = document.getElementById('detailModalTags'); // タグ表示領域
+        const relatedNotesSection = document.getElementById('relatedNotesSection'); // 関連メモセクション
+        const relatedNotesContainer = document.getElementById('relatedNotesContainer'); // 関連メモコンテナ
+        const closeDetailModalButton = document.getElementById('closeDetailModalButton');
+
+        const deleteConfirmModal = document.getElementById('deleteConfirmModal'); // 削除確認モーダル
+        const cancelDeleteButton = document.getElementById('cancelDeleteButton');
+        const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+
+        // フッターボタンの取得
+        const newMemoButton = document.getElementById('newMemoButton'); // 新規作成ボタン
+        const loadXLSXButton = document.getElementById('loadXLSXButton'); // 読み込むボタン
+        const xlsxFileInput = document.getElementById('xlsxFileInput'); // ファイル入力
+        const exportXLSXButton = document.getElementById('exportXLSXButton'); // XLSX出力ボタン
+        const settingsButton = document.getElementById('settingsButton');
+
+        // ジャンルフィルター表示/非表示トグル関連
+        const genreFilterToggleButton = document.getElementById('genreFilterToggleButton');
+        const arrowUpIcon = document.getElementById('arrowUpIcon');
+        const arrowDownIcon = document.getElementById('arrowDownIcon');
+        const genreFilterContentContainer = document.getElementById('genreFilterContentContainer');
+
+        // メインジャンル変更選択モーダル関連
+        const changeMainGenreModal = document.getElementById('changeMainGenreModal');
+        const mainGenreSelectContainer = document.getElementById('mainGenreSelectContainer');
+        const changeMainGenreErrorContainer = document.getElementById('changeMainGenreErrorContainer');
+        const cancelChangeMainGenreButton = document.getElementById('cancelChangeMainGenreButton');
+        const confirmChangeMainGenreButton = document.getElementById('confirmChangeMainGenreButton');
+
+        // 設定モーダル関連のDOM要素 (新規追加)
+        const settingsModal = document.getElementById('settingsModal');
+        const memoBookTitleInput = document.getElementById('memoBookTitleInput'); // メモブックタイトル入力
+        const settingsLightThemeRadio = document.getElementById('settingsLightTheme');
+        const settingsDarkThemeRadio = document.getElementById('settingsDarkTheme');
+        const settingsFontSizeSlider = document.getElementById('settingsFontSizeSlider');
+        const settingsFontSizeValueSpan = document.getElementById('settingsFontSizeValue');
+        const settingsLineHeightSlider = document.getElementById('settingsLineHeightSlider');
+        const settingsLineHeightValueSpan = document.getElementById('settingsLineHeightValue');
+        const cancelSettingsButton = document.getElementById('cancelSettingsButton');
+        const saveSettingsButtonModal = document.getElementById('saveSettingsButtonModal');
+        const markdownLineHeightSample = document.getElementById('markdownLineHeightSample'); // Markdownサンプル要素
+        const memoBookTitleDisplay = document.getElementById('memoBookTitleDisplay'); // ヘッダーのメモブックタイトル表示
+
+        // 新規作成確認モーダル関連
+        const newConfirmModal = document.getElementById('newConfirmModal');
+        const cancelNewButton = document.getElementById('cancelNewButton');
+        const confirmSaveNewButton = document.getElementById('confirmSaveNewButton');
+        const confirmDiscardNewButton = document.getElementById('confirmDiscardNewButton');
+
+
+        let isEditing = false; // 編集モードかどうかを判定するフラグ
+        let editingNoteId = null; // 編集中のメモのID
+        let currentLayout = 'multi-column'; // 現在のレイアウトモード ('single-column' or 'multi-column')
+        let isMouseDownOnOverlay = false; // オーバーレイ上でマウスが押されたかを追跡するフラグ
+        let selectedGenres = []; // 現在選択されているサブジャンルタグ (複数選択のため配列に変更)
+        let activeMainGenres = []; // 現在選択中のメインジャンル (複数選択のため配列に変更)
+        let areGenreFiltersVisible = true; // ジャンルフィルターの表示状態
+
+        // メインジャンル変更モーダルで使用する一時的なデータ
+        let currentSubGenreToMove = {
+            mainIndex: null,
+            subIndex: null,
+            tagName: null
+        };
+
+        // Marked.js の設定 (オプション)
+        marked.setOptions({
+            gfm: true, // GitHub Flavored Markdown を有効にする
+            breaks: true, // 改行を <br> に変換する
+            sanitize: true // HTMLサニタイズを有効にする (セキュリティのため)
+        });
+
+        // ジャンルとして表示するタグのリスト (初期データ - 階層化)
+        let genreTags = [
+            { name: '仕事', subGenres: ['タスク', 'プロジェクト', 'ミーティング'] },
+            { name: '学習', subGenres: ['Python', 'JavaScript', '数学'] },
+            { name: '個人', subGenres: ['買い物', '運動', 'レシピ', '旅行', '緊急'] },
+            { name: 'ジャンルなし', subGenres: [] } // 「ジャンルなし」を最初から表示
+        ];
+
+        // メモデータを一元管理する配列 (初期データを含む)
+        // 実際のアプリでは、このデータをFireStoreなどのデータベースに保存する必要があります。
+        let notesData = [
+            {
+                id: 'note-' + Date.now(), // ユニークなIDを生成
+                title: '今日のタスク',
+                content: '買い物リストを作成する。牛乳、卵、パン、野菜、果物。\n会議の資料を準備する。プレゼンテーションの最終確認。\nジムに行く。30分ランニングと筋トレ。'.trim(),
+                media: [
+                    { type: 'markdown', content: '# 今日のタスク\n\n- 買い物リストを作成する。\n  - 牛乳\n  - 卵\n  - パン\n  - 野菜\n  - 果物\n- 会議の資料を準備する。\n- プレゼンテーションの最終確認。\n- ジムに行く。\n  - 30分ランニング\n  - 筋トレ' }
+                ],
+                dateTime: '2025/05/23 10:30',
+                hideMainContent: false, // 新しいプロパティ
+                tags: ['タスク', '買い物', '運動', '仕事'] // タグを追加
+            },
+            {
+                id: 'note-' + (Date.now() + 1),
+                title: 'アイデアメモ',
+                content: '新しいプロジェクトの企画。ターゲット層の分析と競合調査。\nユニークな機能のブレインストーミング。\nチームメンバーとの役割分担。'.trim(),
+                media: [
+                    { type: 'markdown', content: '## 新しいプロジェクトのアイデア\n\n### 企画段階\n- ターゲット層の分析\n- 競合調査\n\n### ブレインストーミング\n- ユニークな機能の検討\n  - AIを活用した自動要約機能\n  - 共同編集機能\n\n### 役割分担\n- チームメンバーとの調整' },
+                    { type: 'image', url: 'https://placehold.co/400x250/FFD700/000000?text=アイデア画像' }
+                ],
+                dateTime: '2025/05/22 15:00',
+                hideMainContent: false, // 新しいプロパティ
+                tags: ['プロジェクト', 'アイデア', '企画', '仕事'] // タグを追加
+            },
+            {
+                id: 'note-' + (Date.now() + 2),
+                title: '読書リスト',
+                content: '「デザイン思考」に関する書籍を読む。\n「Pythonプログラミング入門」を復習する。\n「歴史小説」を読み始める。'.trim(),
+                media: [
+                    { type: 'markdown', content: '### 読書リスト\n\n1. 「デザイン思考」\n2. 「Pythonプログラミング入門」\n3. 「歴史小説」' },
+                    { type: 'audio', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' }
+                ],
+                dateTime: '2025/05/21 09:45',
+                hideMainContent: false, // 新しいプロパティ
+                tags: ['読書', '学習', 'Python'] // タグを追加
+            },
+            {
+                id: 'note-' + (Date.now() + 3),
+                title: '旅行計画',
+                content: '夏の旅行先を検討。北海道か沖縄か。\n航空券と宿泊施設の予約。\n観光スポットの調査。'.trim(),
+                media: [
+                    { type: 'markdown', content: '## 夏の旅行計画\n\n- **行き先検討:**\n  - 北海道\n  - 沖縄\n- **予約:**\n  - 航空券\n  - 宿泊施設\n- **調査:**\n  - 観光スポット\n  - 現地の食事' },
+                    { type: 'video', url: 'https://www.w3schools.com/html/mov_bbb.mp4' }
+                ],
+                dateTime: '2025/05/20 18:15',
+                hideMainContent: false, // 新しいプロパティ
+                tags: ['旅行', '計画', '夏', '個人'] // タグを追加
+            },
+            {
+                id: 'note-' + (Date.now() + 4),
+                title: 'レシピメモ',
+                content: '新しいカレーのレシピを試す。\n材料: 鶏肉、玉ねぎ、じゃがいも、にんじん、カレールー。\n調理手順: 炒める、煮込む。'.trim(),
+                media: [
+                    { type: 'markdown', content: '### カレーのレシピ\n\n**材料:**\n- 鶏肉\n- 玉ねぎ\n- じゃがいも\n- にんじん\n- カレールー\n\n**調理手順:**\n1. 材料を炒める。\n2. 煮込む。' }
+                ],
+                dateTime: '2025/05/19 12:00',
+                hideMainContent: false, // 新しいプロパティ
+                tags: ['レシピ', '料理', 'カレー', '個人'] // タグを追加
+            },
+            {
+                id: 'note-' + (Date.now() + 5),
+                title: '緊急連絡先',
+                content: '消防署: 119, 警察署: 110, 病院: 03-XXXX-XXXX\n家族の連絡先: 携帯電話番号'.trim(),
+                media: [
+                    { type: 'markdown', content: '## 緊急連絡先\n\n- 消防署: `119`\n- 警察署: `110`\n- 病院: `03-XXXX-XXXX`\n- 家族の連絡先: 携帯電話番号' }
+                ],
+                dateTime: '2025/05/18 08:00',
+                hideMainContent: false, // 新しいプロパティ
+                tags: ['緊急', '連絡先', '個人'] // タグを追加
+            },
+            {
+                id: 'note-' + (Date.now() + 6),
+                title: 'プロジェクトA進捗',
+                content: 'フェーズ1完了。フェーズ2の要件定義を開始。\n次回のミーティングは月曜日。'.trim(),
+                media: [
+                    { type: 'markdown', content: '### プロジェクトA進捗\n\n- フェーズ1 **完了**\n- フェーズ2の要件定義を**開始**\n- 次回のミーティングは*月曜日*です。' }
+                ],
+                dateTime: '2025/05/17 16:00',
+                hideMainContent: false, // 新しいプロパティ
+                tags: ['プロジェクト', '進捗', 'ミーティング', '仕事'] // タグを追加
+            },
+            {
+                id: 'note-' + (Date.now() + 7),
+                title: '新しいスキル学習',
+                content: 'JavaScriptのフレームワーク学習。Reactのチュートリアルを開始。\n毎日1時間学習時間を確保する。'.trim(),
+                media: [
+                    { type: 'markdown', content: '### 新しいスキル学習\n\n- JavaScriptのフレームワーク学習\n  - Reactのチュートリアルを**開始**\n- 毎日1時間学習時間を確保する。' }
+                ],
+                dateTime: '2025/05/16 11:30',
+                hideMainContent: false, // 新しいプロパティ
+                tags: ['学習', 'JavaScript', 'React'] // タグを追加
+            },
+            {
+                id: 'note-' + (Date.now() + 8),
+                title: '数式テスト',
+                content: 'これは数式テストのメモです。',
+                media: [
+                    { type: 'markdown', content: '## 数式テスト\n\nインライン数式: $E=mc^2$\n\nブロック数式:\n$$\\sum_{i=1}^n i = \\frac{n(n+1)}{2}$$\n\n別のインライン数式: $\\alpha + \\beta = \\gamma$\n\n別のブロック数式:\n$$\n\\int_0^1 x^2 dx = \\left[ \\frac{x^3}{3} \\right]_0^1 = \\frac{1}{3}\n$$' }
+                ],
+                dateTime: '2025/05/23 18:00',
+                hideMainContent: false, // 新しいプロパティ
+                tags: ['数学', 'テスト', '数式', '学習'] // タグを追加
+            }
+        ];
+
+        // デフォルト設定 (settings.htmlと同期)
+        const defaultSettings = {
+            theme: 'light',
+            fontSize: 16,
+            lineHeight: 1.6,
+            memoBookTitle: '私のメモブック' // New default
+        };
+
+        let currentSettings = loadSettings(); // 現在の設定を保持する変数
+
+        /**
+         * 設定をLocalStorageから読み込む関数
+         * @returns {object} 読み込まれた設定オブジェクト
+         */
+        function loadSettings() {
+            try {
+                const savedSettings = JSON.parse(localStorage.getItem('memoAppSettings'));
+                return { ...defaultSettings, ...savedSettings }; // デフォルト設定とマージ
+            } catch (e) {
+                console.error("Failed to parse settings from localStorage:", e);
+                return defaultSettings;
+            }
+        }
+
+        /**
+         * 設定をLocalStorageに保存する関数
+         * @param {object} settings - 保存する設定オブジェクト
+         */
+        function saveSettings(settings) {
+            localStorage.setItem('memoAppSettings', JSON.stringify(settings));
+        }
+
+        /**
+         * 設定をUIに適用する関数
+         * @param {object} settings - 適用する設定オブジェクト
+         * @param {boolean} [updateModal=false] - モーダルUIも更新するかどうか
+         */
+        function applySettings(settings, updateModal = false) {
+            // テーマの適用
+            if (settings.theme === 'dark') {
+                document.body.classList.add('dark-theme');
+            } else {
+                document.body.classList.remove('dark-theme');
+            }
+
+            // 文字サイズの適用 (html要素のfont-sizeを変更してrem単位をスケール)
+            // Tailwindのrem単位はhtmlのfont-sizeに依存するため、ここで変更する
+            document.documentElement.style.fontSize = `${settings.fontSize / 16}rem`;
+
+            // マークダウン行間の適用
+            document.documentElement.style.setProperty('--markdown-line-height', settings.lineHeight);
+
+            // ヘッダーのメモブックタイトルを更新
+            memoBookTitleDisplay.textContent = settings.memoBookTitle;
+
+            // モーダルUIも更新する場合
+            if (updateModal && settingsModal.classList.contains('flex')) { // モーダルが表示されている場合のみ更新
+                memoBookTitleInput.value = settings.memoBookTitle || ''; // メモブックタイトル入力フィールドを更新
+                settingsLightThemeRadio.checked = (settings.theme === 'light');
+                settingsDarkThemeRadio.checked = (settings.theme === 'dark');
+                settingsFontSizeSlider.value = settings.fontSize;
+                settingsFontSizeValueSpan.textContent = `${currentSettings.fontSize}px`; // Fix: Use currentSettings.fontSize
+                settingsLineHeightSlider.value = settings.lineHeight;
+                settingsLineHeightValueSpan.textContent = currentSettings.lineHeight.toFixed(1); // Fix: Use currentSettings.lineHeight
+            }
+
+            // Markdownサンプルに適用
+            if (markdownLineHeightSample) {
+                markdownLineHeightSample.style.lineHeight = settings.lineHeight;
+            }
+        }
+
+        // 初期ロード時に設定を適用
+        applySettings(currentSettings);
+
+
+        /**
+         * モーダルを開く関数 (メモの追加/編集用)
+         * @param {string} title - モーダルのタイトル
+         * @param {object} [noteData] - 編集対象のメモデータ (オプション)
+         */
+        function openNoteModal(title, noteData = {}) {
+            modalTitle.textContent = title;
+            noteTitleInput.value = noteData.title || '';
+            noteContentInput.value = noteData.content || '';
+
+            // 既存のタグ入力欄をクリア
+            dynamicTagInputs.innerHTML = '';
+            // 編集中のメモにタグがある場合、それらを動的に追加
+            if (noteData.tags && noteData.tags.length > 0) {
+                noteData.tags.forEach(tag => {
+                    addTagInputBlock(tag);
+                });
+            }
+
+            hideMainContentCheckbox.checked = noteData.hideMainContent || false; // チェックボックスの状態を設定
+
+            // 既存のメディア入力欄をクリア
+            dynamicMediaInputs.innerHTML = '';
+
+            // 編集中のメモにメディアがある場合、それらを動的に追加
+            if (noteData.media && noteData.media.length > 0) {
+                noteData.media.forEach(mediaItem => {
+                    // addMediaInputBlockを呼び出す際に、初期値も渡す
+                    addMediaInputBlock(mediaItem.type, mediaItem.url || mediaItem.content);
+                });
+            }
+
+            // エラーメッセージをクリア
+            noteModalErrorContainer.textContent = '';
+
+            noteModal.classList.remove('hidden', 'opacity-0');
+            noteModal.classList.add('flex', 'opacity-100');
+        }
+
+        /**
+         * モーダルを閉じる関数 (メモの追加/編集用)
+         */
+        function closeNoteModal() {
+            noteModal.classList.remove('flex', 'opacity-100');
+            noteModal.classList.add('hidden', 'opacity-0');
+            noteTitleInput.value = '';
+            noteContentInput.value = '';
+            dynamicTagInputs.innerHTML = ''; // 動的タグ入力欄をクリア
+            hideMainContentCheckbox.checked = false; // チェックボックスの状態をリセット
+            dynamicMediaInputs.innerHTML = ''; // 動的入力欄をクリア
+            isEditing = false;
+            editingNoteId = null;
+            noteModalErrorContainer.textContent = ''; // エラーメッセージをクリア
+        }
+
+        /**
+         * 削除確認モーダルを開く関数
+         */
+        function openDeleteConfirmModal() {
+            deleteConfirmModal.classList.remove('hidden', 'opacity-0');
+            deleteConfirmModal.classList.add('flex', 'opacity-100');
+        }
+
+        /**
+         * 削除確認モーダルを閉じる関数
+         */
+        function closeDeleteConfirmModal() {
+            deleteConfirmModal.classList.remove('flex', 'opacity-100');
+            deleteConfirmModal.classList.add('hidden', 'opacity-0');
+        }
+
+        /**
+         * メモ詳細表示モーダルを開く関数
+         * @param {object} noteData - 表示するメモデータ
+         */
+        function openDetailModal(noteData) {
+            detailModalTitle.textContent = noteData.title;
+            detailModalContent.textContent = noteData.content;
+            detailMediaContainer.innerHTML = ''; // 既存のメディアをクリア
+            detailModalTags.innerHTML = ''; // 既存のタグをクリア
+
+            // メインコンテンツの表示/非表示を制御
+            // hideMainContentがtrue AND メディアがある場合にのみhiddenクラスを追加
+            if (noteData.hideMainContent && noteData.media && noteData.media.length > 0) {
+                detailModalContent.classList.add('hidden');
+            } else {
+                detailModalContent.classList.remove('hidden');
+            }
+
+            // メインジャンル名のリストを作成 (小文字で比較するため)
+            const mainGenreNamesLower = genreTags.map(g => g.name.toLowerCase());
+
+            // タグをメインジャンルタグとその他のタグに分類
+            const displayMainGenreTags = [];
+            const displayOtherTags = [];
+
+            if (noteData.tags && noteData.tags.length > 0) {
+                noteData.tags.forEach(tag => {
+                    // メインジャンル名と一致するタグは、表示上も「メインジャンルタグ」として扱わない
+                    if (mainGenreNamesLower.includes(tag.toLowerCase())) {
+                        // displayMainGenreTags.push(tag); // ここでは追加しない
+                    } else {
+                        displayOtherTags.push(tag);
+                    }
+                });
+            }
+
+            // メインジャンルタグを先に表示 (ただし、今回はメモのタグとしては表示しないので、このループは実質スキップされる)
+            displayMainGenreTags.forEach(tag => {
+                const tagSpan = document.createElement('span');
+                tagSpan.classList.add('inline-block', 'text-xs', 'font-semibold', 'px-2.5', 'py-0.5', 'rounded-full', 'mr-1', 'bg-green-100', 'text-green-800');
+                tagSpan.textContent = tag;
+                detailModalTags.appendChild(tagSpan);
+            });
+
+            // その他のタグを表示
+            displayOtherTags.forEach(tag => {
+                const tagSpan = document.createElement('span');
+                tagSpan.classList.add('inline-block', 'text-xs', 'font-semibold', 'px-2.5', 'py-0.5', 'rounded-full', 'mr-1', 'bg-blue-100', 'text-blue-800');
+                tagSpan.textContent = tag;
+                detailModalTags.appendChild(tagSpan);
+            });
+
+
+            // Render media
+            if (noteData.media && noteData.media.length > 0) {
+                noteData.media.forEach(mediaItem => {
+                    const mediaElementContainer = document.createElement('div');
+                    mediaElementContainer.classList.add('media-display-block', 'p-4', 'border', 'border-gray-200', 'rounded-lg', 'bg-gray-50');
+
+                    if (mediaItem.type === 'markdown') {
+                        const markdownDiv = document.createElement('div');
+                        markdownDiv.classList.add('markdown-content-display');
+                        markdownDiv.innerHTML = marked.parse(mediaItem.content || ''); // Ensure content is not null/undefined
+                        mediaElementContainer.appendChild(markdownDiv);
+                        if (typeof MathJax !== 'undefined') {
+                            MathJax.typesetPromise([markdownDiv]).catch((err) => console.error('MathJax typesetting error:', err));
+                        }
+                    } else if (mediaItem.url) { // Check if URL exists
+                        if (isValidUrl(mediaItem.url)) { // Only proceed if URL is valid
+                            if (mediaItem.type === 'image') {
+                                const img = document.createElement('img');
+                                img.src = mediaItem.url;
+                                img.alt = '添付画像';
+                                // Removed max-h-64 to allow natural height based on aspect ratio
+                                img.classList.add('w-full', 'h-auto', 'object-contain', 'rounded-md');
+                                img.onerror = () => {
+                                    img.src = 'https://placehold.co/150x100/cccccc/333333?text=メディアの読み込みに失敗しました';
+                                    img.alt = '画像ロードエラー';
+                                    console.error('Failed to load image:', mediaItem.url);
+                                };
+                                mediaElementContainer.appendChild(img);
+                            } else if (mediaItem.type === 'audio') {
+                                const audio = document.createElement('audio');
+                                audio.controls = true;
+                                audio.src = mediaItem.url;
+                                audio.classList.add('w-full');
+                                audio.onerror = () => {
+                                    const errorDiv = document.createElement('div');
+                                    errorDiv.textContent = '音声の読み込みに失敗しました';
+                                    errorDiv.classList.add('text-red-500', 'text-sm', 'p-1', 'bg-red-50', 'rounded-md');
+                                    mediaElementContainer.appendChild(errorDiv);
+                                    console.error('Failed to load audio:', mediaItem.url);
+                                };
+                                mediaElementContainer.appendChild(audio);
+                            } else if (mediaItem.type === 'video') {
+                                const video = document.createElement('video');
+                                video.controls = true;
+                                video.src = mediaItem.url;
+                                // Removed max-h-64 to allow natural height based on aspect ratio
+                                video.classList.add('w-full', 'h-auto', 'object-contain', 'rounded-md');
+                                video.onerror = () => {
+                                    const errorDiv = document.createElement('div');
+                                    errorDiv.textContent = '動画の読み込みに失敗しました';
+                                    errorDiv.classList.add('text-red-500', 'text-sm', 'p-1', 'bg-red-50', 'rounded-md');
+                                    mediaElementContainer.appendChild(errorDiv);
+                                    console.error('Failed to load video:', mediaItem.url);
+                                };
+                                mediaElementContainer.appendChild(video);
+                            }
+                        } else {
+                            // If URL is invalid
+                            const errorDiv = document.createElement('div');
+                            errorDiv.textContent = `メディアの読み込みに失敗しました: 無効な${mediaItem.type}URL`;
+                            errorDiv.classList.add('text-red-500', 'text-sm', 'p-1', 'bg-red-50', 'rounded-md');
+                            mediaElementContainer.appendChild(errorDiv);
+                            console.warn('Invalid URL for media:', mediaItem.url);
+                        }
+                    } else {
+                        // If URL is missing for non-markdown types
+                        const errorDiv = document.createElement('div');
+                        errorDiv.textContent = `メディアの読み込みに失敗しました: ${mediaItem.type}URLがありません`;
+                        errorDiv.classList.add('text-red-500', 'text-sm', 'p-1', 'bg-red-50', 'rounded-md');
+                        mediaElementContainer.appendChild(errorDiv);
+                        console.warn('Missing URL for media type:', mediaItem.type);
+                    }
+                    detailMediaContainer.appendChild(mediaElementContainer);
+                });
+            }
+
+            // Clear and hide related notes section initially
+            relatedNotesContainer.innerHTML = '';
+            relatedNotesSection.classList.add('hidden');
+
+            // Render related notes
+            const relatedNotes = getRelatedNotes(noteData.id, noteData.tags);
+            if (relatedNotes.length > 0) {
+                relatedNotesSection.classList.remove('hidden');
+                relatedNotes.forEach(relatedNote => {
+                    const relatedNoteCard = document.createElement('div');
+                    relatedNoteCard.classList.add('p-3', 'bg-gray-100', 'rounded-md', 'shadow-sm', 'cursor-pointer', 'hover:bg-gray-200', 'transition-colors');
+                    relatedNoteCard.innerHTML = `
+                        <h4 class="font-medium text-gray-800 text-base mb-1">${relatedNote.title}</h4>
+                        <p class="text-xs text-gray-600 line-clamp-2 mb-2">${relatedNote.content.trim()}</p>
+                        <p class="text-xs text-gray-600">
+                            ${relatedNote.tags.length > 0 ? relatedNote.tags.map(tag => {
+                                const isCommon = noteData.tags.map(t => t.toLowerCase()).includes(tag.toLowerCase());
+                                return `<span class="inline-block ${isCommon ? 'bg-yellow-200 text-yellow-800' : 'bg-gray-200 text-gray-700'} text-xs px-1.5 py-0.5 rounded-full mr-1">${tag}</span>`;
+                            }).join('') : ''}
+                        </p>
+                    `;
+                    relatedNoteCard.addEventListener('click', () => {
+                        closeDetailModal(); // Close current detail modal
+                        openDetailModal(relatedNote); // Open related note's detail modal
+                    });
+                    relatedNotesContainer.appendChild(relatedNoteCard);
+                });
+            }
+
+            detailModal.classList.remove('hidden', 'opacity-0');
+            detailModal.classList.add('flex', 'opacity-100');
+        }
+
+        /**
+         * メモ詳細表示モーダルを閉じる関数
+         */
+        function closeDetailModal() {
+            detailModal.classList.remove('flex', 'opacity-100');
+            detailModal.classList.add('hidden', 'opacity-0');
+            detailMediaContainer.innerHTML = ''; // メディアをクリア
+            detailModalTags.innerHTML = ''; // タグをクリア
+            relatedNotesContainer.innerHTML = ''; // 関連メモをクリア
+            relatedNotesSection.classList.add('hidden'); // 関連メモセクションを非表示
+        }
+
+        /**
+         * URLが有効かどうかを簡易的にチェックする関数
+         * @param {string} url - チェックするURL
+         * @returns {boolean} - 有効なURLであればtrue
+         */
+        function isValidUrl(url) {
+            if (typeof url !== 'string' || url.trim() === '') {
+                return false;
+            }
+            // 環境によってはnew URL()が厳しすぎる場合があるため、よりシンプルなチェックに変更
+            return url.startsWith('http://') || url.startsWith('https://');
+        }
+
+        /**
+         * 動的にメディア入力ブロックを追加する関数
+         * @param {string} [initialType='image'] - 初期選択されるメディアタイプ
+         * @param {string} [initialValue=''] - 初期入力されるURLまたはコンテンツ
+         */
+        function addMediaInputBlock(initialType = 'image', initialValue = '') {
+            const uniqueId = 'media-block-' + Date.now() + Math.floor(Math.random() * 1000);
+
+            const mediaBlockDiv = document.createElement('div');
+            mediaBlockDiv.id = uniqueId;
+            mediaBlockDiv.classList.add('media-input-block', 'p-4', 'border', 'border-gray-200', 'rounded-lg', 'bg-gray-50', 'relative');
+
+            mediaBlockDiv.innerHTML = `
+                <div class="absolute top-2 right-2 flex space-x-1">
+                    <button class="move-media-up-button bg-gray-100 text-gray-600 hover:bg-gray-200 p-1 rounded-full text-xs">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+                    </button>
+                    <button class="move-media-down-button bg-gray-100 text-gray-600 hover:bg-gray-200 p-1 rounded-full text-xs">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-down"><path d="m19 12-7 7-7-7"/><path d="M12 5v14"/></svg>
+                    </button>
+                    <button class="remove-media-button bg-red-100 text-red-600 hover:bg-red-200 p-1 rounded-full text-xs">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+                <div class="mb-3">
+                    <label for="${uniqueId}-type" class="block text-gray-700 text-sm font-medium mb-1">メディアタイプ</label>
+                    <select id="${uniqueId}-type" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="image">画像 (URL)</option>
+                        <option value="audio">音声 (URL)</option>
+                        <option value="video">動画 (URL)</option>
+                        <option value="markdown">Markdown</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="${uniqueId}-value" class="block text-gray-700 text-sm font-medium mb-1" id="${uniqueId}-label">URL/コンテンツ</label>
+                    <textarea id="${uniqueId}-value" class="w-full p-2 border border-gray-300 rounded-lg resize-y min-h-[60px] max-h-[200px] focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="URLまたはMarkdownコンテンツを入力"></textarea>
+                </div>
+                <div id="${uniqueId}-preview" class="mt-2 w-full max-h-40 overflow-hidden rounded-lg"></div>
+            `;
+
+            dynamicMediaInputs.appendChild(mediaBlockDiv);
+
+            const typeSelect = mediaBlockDiv.querySelector(`#${uniqueId}-type`);
+            const valueInput = mediaBlockDiv.querySelector(`#${uniqueId}-value`);
+            const valueLabel = mediaBlockDiv.querySelector(`#${uniqueId}-label`);
+            const previewContainer = mediaBlockDiv.querySelector(`#${uniqueId}-preview`);
+            const removeButton = mediaBlockDiv.querySelector('.remove-media-button');
+            const moveUpButton = mediaBlockDiv.querySelector('.move-media-up-button');
+            const moveDownButton = mediaBlockDiv.querySelector('.move-media-down-button');
+
+            // 初期値の設定
+            typeSelect.value = initialType;
+            // まずタイプに基づいて入力フィールドの表示を更新
+            updateMediaInputType(typeSelect, valueInput, valueLabel);
+            // その後、初期値を設定し、プレビューを更新
+            valueInput.value = initialValue;
+            if (initialType === 'image' || initialType === 'audio' || initialType === 'video') {
+                displayMediaPreview(initialType, initialValue, previewContainer);
+            }
+
+
+            // タイプ選択時のイベントリスナー
+            typeSelect.addEventListener('change', () => {
+                valueInput.value = ''; // タイプ変更時に値をクリア
+                previewContainer.innerHTML = ''; // プレビューもクリア
+                updateMediaInputType(typeSelect, valueInput, valueLabel);
+            });
+
+            // 入力値変更時のプレビュー更新イベントリスナー
+            valueInput.addEventListener('input', () => {
+                const type = typeSelect.value;
+                const value = valueInput.value;
+                if (type === 'image') {
+                    displayMediaPreview('image', value, previewContainer);
+                } else if (type === 'audio') {
+                    displayMediaPreview('audio', value, previewContainer);
+                } else if (type === 'video') {
+                    displayMediaPreview('video', value, previewContainer);
+                } else {
+                    previewContainer.innerHTML = ''; // Markdownの場合はプレビューなし
+                }
+            });
+
+            // 削除ボタンのイベントリスナー
+            removeButton.addEventListener('click', () => {
+                mediaBlockDiv.remove();
+            });
+
+            // 上へ移動ボタンのイベントリスナー
+            moveUpButton.addEventListener('click', (e) => {
+                e.stopPropagation(); // 親要素へのイベント伝播を防ぐ
+                const currentBlock = e.target.closest('.media-input-block');
+                const parent = currentBlock.parentNode;
+                if (parent.firstChild === currentBlock) return; // すでに一番上
+                parent.insertBefore(currentBlock, currentBlock.previousElementSibling);
+            });
+
+            // 下へ移動ボタンのイベントリスナー
+            moveDownButton.addEventListener('click', (e) => {
+                e.stopPropagation(); // 親要素へのイベント伝播を防ぐ
+                const currentBlock = e.target.closest('.media-input-block');
+                const parent = currentBlock.parentNode;
+                if (parent.lastChild === currentBlock) return; // すでに一番下
+                parent.insertBefore(currentBlock.nextElementSibling, currentBlock);
+            });
+        }
+
+        /**
+         * 動的にタグ入力ブロックを追加する関数
+         * @param {string} [initialValue=''] - 初期入力されるタグ名
+         */
+        function addTagInputBlock(initialValue = '') {
+            const uniqueId = 'tag-block-' + Date.now() + Math.floor(Math.random() * 1000);
+
+            const tagBlockDiv = document.createElement('div');
+            tagBlockDiv.id = uniqueId;
+            tagBlockDiv.classList.add('tag-input-block', 'flex', 'items-center', 'space-x-2');
+
+            tagBlockDiv.innerHTML = `
+                <input type="text" id="${uniqueId}-value" class="flex-grow p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="タグ名を入力" value="${initialValue}">
+                <button class="remove-tag-button bg-red-100 text-red-600 hover:bg-red-200 p-2 rounded-full text-xs">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            `;
+
+            dynamicTagInputs.appendChild(tagBlockDiv);
+
+            const removeButton = tagBlockDiv.querySelector('.remove-tag-button');
+            removeButton.addEventListener('click', () => {
+                tagBlockDiv.remove();
+            });
+        }
+
+        /**
+         * メディア入力フィールドのタイプ（URLまたはテキストエリア）とプレビューを更新する
+         * @param {HTMLSelectElement} typeSelect - メディアタイプ選択のselect要素
+         * @param {HTMLTextAreaElement} valueInput - URL/コンテンツ入力のtextarea要素
+         * @param {HTMLLabelElement} valueLabel - URL/コンテンツ入力のlabel要素
+         */
+        function updateMediaInputType(typeSelect, valueInput, valueLabel) {
+            const selectedType = typeSelect.value;
+
+            if (selectedType === 'markdown') {
+                valueLabel.textContent = 'Markdownコンテンツ';
+                valueInput.placeholder = 'Markdown形式で内容を入力';
+                valueInput.classList.remove('h-10'); // URL入力時の高さがあれば解除
+                valueInput.classList.add('h-32', 'resize-y'); // Markdown用の高さとリサイズを適用
+            } else {
+                valueLabel.textContent = 'URL';
+                valueInput.placeholder = '例: https://example.com/media.jpg';
+                valueInput.classList.remove('h-32', 'resize-y'); // Markdown用の高さがあれば解除
+                valueInput.classList.add('h-10'); // URL入力時の標準の高さに
+            }
+        }
+
+        /**
+         * メディアプレビューの表示関数
+         * @param {string} type - 'image', 'audio', 'video'
+         * @param {string} url - メディアのURL
+         * @param {HTMLElement} previewElement - プレビューを表示するDOM要素
+         */
+        function displayMediaPreview(type, url, previewElement) {
+            previewElement.innerHTML = ''; // 既存のプレビューをクリア
+            if (!url || !isValidUrl(url)) return;
+
+            if (type === 'image') {
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = '添付画像';
+                img.classList.add('w-full', 'h-auto', 'object-contain', 'max-h-40', 'rounded-md');
+                img.onerror = () => {
+                    img.src = 'https://placehold.co/150x100/cccccc/333333?text=画像なし';
+                    img.alt = '画像ロードエラー';
+                };
+                previewElement.appendChild(img);
+            } else if (type === 'audio') {
+                const audio = document.createElement('audio');
+                audio.controls = true;
+                audio.src = url;
+                audio.classList.add('w-full');
+                previewElement.appendChild(audio);
+            } else if (type === 'video') {
+                const video = document.createElement('video');
+                video.controls = true;
+                video.src = url;
+                video.classList.add('w-full', 'h-auto', 'object-contain', 'max-h-40', 'rounded-md');
+                video.onerror = () => {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.textContent = '動画プレビュー不可';
+                    errorDiv.classList.add('text-red-500', 'text-sm', 'p-1', 'bg-red-50', 'rounded-md');
+                    previewElement.appendChild(errorDiv);
+                };
+                previewElement.appendChild(video);
+            }
+        }
+
+        /**
+         * メモカードのDOM要素を生成する関数
+         * @param {object} note - メモデータオブジェクト
+         * @returns {HTMLElement} 作成されたメモカード要素
+         */
+        function createNoteCardElement(note) {
+            const noteCardDiv = document.createElement('div');
+            noteCardDiv.classList.add(
+                'note-card', 'group', 'relative', 'bg-gray-50', 'p-4', 'rounded-lg', 'shadow-sm',
+                'border', 'border-gray-200', 'hover:shadow-md', 'transition-shadow',
+                'duration-200', 'cursor-pointer'
+            );
+            noteCardDiv.dataset.id = note.id; // データ属性にIDを設定
+
+            const tagsHtml = note.tags && note.tags.length > 0
+                ? note.tags.map(tag => `<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">${tag}</span>`).join('')
+                : '';
+
+            // `tag-display-on-card` の位置を変更し、`note-actions` の位置も変更
+            noteCardDiv.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="font-semibold text-gray-800 note-title">${note.title}</h3>
+                    <div class="flex flex-wrap justify-end gap-1 tag-display-on-card ml-2">
+                        ${tagsHtml}
+                    </div>
+                </div>
+                <p class="text-sm text-gray-600 line-clamp-3 note-content">
+                    ${note.content.trim()} </p>
+                <div class="text-xs text-gray-400 mt-2 note-date">${note.dateTime}</div>
+                <div class="note-actions absolute bottom-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button class="edit-note-button bg-blue-100 text-blue-600 hover:bg-blue-200 p-1 rounded-full flex items-center justify-center transition-colors duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil w-4 h-4"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                    </button>
+                    <button class="delete-note-button bg-red-100 text-red-600 hover:bg-red-200 p-1 rounded-full flex items-center justify-center transition-colors duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2 w-4 h-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                    </button>
+                </div>
+            `;
+            return noteCardDiv;
+        }
+
+        /**
+         * notesData配列に基づいてメモカードをレンダリングする関数
+         */
+        function renderNotes() {
+            // メインジャンル名をタグから削除する処理をここに追加
+            const mainGenreNamesLower = new Set(genreTags.map(g => g.name.toLowerCase()));
+            notesData.forEach(note => {
+                if (note.tags) {
+                    note.tags = note.tags.filter(tag => !mainGenreNamesLower.has(tag.toLowerCase()));
+                }
+            });
+
+            notesGrid.innerHTML = ''; // 既存のメモカードをすべてクリア
+            notesData.forEach(note => {
+                const noteCardElement = createNoteCardElement(note);
+                notesGrid.prepend(noteCardElement); // 新しいメモを一番上に追加
+            });
+            filterNotes(); // レンダリング後に検索フィルターを適用
+        }
+
+        /**
+         * メインジャンルフィルターボタンをレンダリングする関数
+         */
+        function renderMainGenreFilters() {
+            mainGenreFilterContainer.innerHTML = ''; // 既存のボタンをクリア
+            genreTags.forEach(genreGroup => {
+                const button = document.createElement('button');
+                button.textContent = genreGroup.name;
+                button.classList.add(
+                    'main-genre-button',
+                    'py-1',
+                    'px-3',
+                    'rounded-full',
+                    'text-sm',
+                    'font-medium',
+                    'transition-colors',
+                    'duration-200',
+                    'shadow-sm',
+                    'hover:shadow-md',
+                    'flex-shrink-0'
+                );
+
+                if (activeMainGenres.includes(genreGroup.name)) { // 複数選択に対応
+                    button.classList.add('bg-green-500', 'text-white', 'hover:bg-green-600'); // メインジャンルを緑に
+                } else {
+                    button.classList.add('bg-gray-200', 'text-gray-800', 'hover:bg-gray-300');
+                }
+
+                button.addEventListener('click', () => {
+                    const index = activeMainGenres.indexOf(genreGroup.name);
+                    if (index > -1) {
+                        activeMainGenres.splice(index, 1); // 選択解除
+                    } else {
+                        activeMainGenres.push(genreGroup.name); // 選択
+                    }
+                    // メインジャンルが変更された場合、サブジャンルの選択をリセット
+                    selectedGenres = [];
+                    renderMainGenreFilters(); // メインジャンルボタンのスタイルを更新
+                    renderSubGenreFilters(); // サブジャンルボタンをレンダリング
+                    filterNotes(); // メモをフィルター
+                });
+                mainGenreFilterContainer.appendChild(button);
+            });
+        }
+
+        /**
+         * サブジャンルフィルターボタンをレンダリングする関数
+         */
+        function renderSubGenreFilters() {
+            subGenreFilterContainer.innerHTML = ''; // 既存のボタンをクリア
+            let subTagsToRender = [];
+
+            if (activeMainGenres.length > 0) { // 複数のメインジャンルが選択されている場合
+                activeMainGenres.forEach(mainGenreName => {
+                    const currentGenreGroup = genreTags.find(g => g.name === mainGenreName);
+                    if (currentGenreGroup && currentGenreGroup.subGenres) {
+                        subTagsToRender = subTagsToRender.concat(currentGenreGroup.subGenres);
+                    }
+                });
+                subTagsToRender = [...new Set(subTagsToRender)].sort((a, b) => a.localeCompare(b, 'ja', { sensitivity: 'base' })); // 重複を排除しソート (日本語対応)
+            } else {
+                // メインジャンルが選択されていない場合、すべてのサブジャンルを表示
+                genreTags.forEach(genreGroup => {
+                    if (genreGroup.subGenres) {
+                        subTagsToRender = subTagsToRender.concat(genreGroup.subGenres);
+                    }
+                });
+                // 重複を排除し、アルファベット順にソート（任意）
+                subTagsToRender = [...new Set(subTagsToRender)].sort((a, b) => a.localeCompare(b, 'ja', { sensitivity: 'base' })); // 日本語対応
+            }
+
+            // 「ジャンルなし」がアクティブなメインジャンルに含まれているか、
+            // またはメインジャンルが何も選択されていない場合は、サブジャンルコンテナを常に表示
+            const isNoGenreActive = activeMainGenres.includes('ジャンルなし');
+            const isAnyMainGenreSelected = activeMainGenres.length > 0;
+
+            if (subTagsToRender.length > 0 || isNoGenreActive || !isAnyMainGenreSelected) {
+                subGenreFilterContainer.classList.remove('hidden');
+
+                // サブジャンルが一つもレンダリングされない場合にメッセージを表示
+                if (subTagsToRender.length === 0 && (isNoGenreActive || !isAnyMainGenreSelected)) {
+                    const placeholder = document.createElement('span');
+                    placeholder.classList.add('text-gray-500', 'text-sm', 'px-3', 'py-1');
+                    placeholder.textContent = 'サブジャンルはありません';
+                    subGenreFilterContainer.appendChild(placeholder);
+                }
+
+            } else {
+                subGenreFilterContainer.classList.add('hidden');
+            }
+
+
+            subTagsToRender.forEach(subTag => {
+                const button = document.createElement('button');
+                button.textContent = subTag;
+                button.classList.add(
+                    'sub-genre-button',
+                    'py-1',
+                    'px-3',
+                    'rounded-full',
+                    'text-sm',
+                    'font-medium',
+                    'transition-colors',
+                    'duration-200',
+                    'shadow-sm',
+                    'hover:shadow-md',
+                    'flex-shrink-0'
+                );
+
+                if (selectedGenres.includes(subTag)) {
+                    button.classList.add('bg-indigo-500', 'text-white', 'hover:bg-indigo-600'); // サブジャンルは別の色
+                } else {
+                    button.classList.add('bg-gray-200', 'text-gray-800', 'hover:bg-gray-300');
+                }
+
+                button.addEventListener('click', () => {
+                    const tagIndex = selectedGenres.indexOf(subTag);
+                    if (tagIndex > -1) {
+                        selectedGenres.splice(tagIndex, 1); // 選択解除
+                    } else {
+                        selectedGenres.push(subTag); // 選択
+                    }
+                    renderSubGenreFilters(); // サブジャンルボタンのスタイルを更新
+                    filterNotes(); // メモをフィルター
+                });
+                subGenreFilterContainer.appendChild(button);
+            });
+        }
+
+
+        /**
+         * ジャンル管理モーダルを開く関数
+         */
+        function openGenreManagementModal() {
+            renderGenreListInModal();
+            genreManagementModal.classList.remove('hidden', 'opacity-0');
+            genreManagementModal.classList.add('flex', 'opacity-100');
+        }
+
+        /**
+         * ジャンル管理モーダルを閉じる関数
+         */
+        function closeGenreManagementModal() {
+            genreManagementModal.classList.remove('flex', 'opacity-100');
+            genreManagementModal.classList.add('hidden', 'opacity-0');
+            newMainGenreInput.value = ''; // 入力フィールドをクリア
+            renderMainGenreFilters(); // メイン画面のジャンルフィルターを更新
+            renderSubGenreFilters(); // サブジャンルフィルターを更新
+            filterNotes(); // メモを再フィルター
+        }
+
+        /**
+         * ジャンル管理モーダル内のジャンルリストをレンダリングする関数
+         */
+        function renderGenreListInModal() {
+            genreListContainer.innerHTML = '';
+            genreTags.forEach((genreGroup, mainIndex) => {
+                const mainGenreItemDiv = document.createElement('div');
+                mainGenreItemDiv.classList.add('main-genre-item', 'p-3', 'bg-gray-50', 'rounded-lg', 'shadow-sm', 'border', 'border-gray-200', 'mb-2');
+                mainGenreItemDiv.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-semibold text-gray-800" id="main-genre-name-${mainIndex}">${genreGroup.name}</span>
+                        <div class="flex space-x-1">
+                            <button class="edit-main-genre-button text-blue-500 hover:text-blue-700" data-index="${mainIndex}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                            </button>
+                            <button class="move-main-genre-up-button text-gray-600 hover:text-gray-800 disabled:opacity-50" ${mainIndex === 0 ? 'disabled' : ''} data-index="${mainIndex}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+                            </button>
+                            <button class="move-main-genre-down-button text-gray-600 hover:text-gray-800 disabled:opacity-50" ${mainIndex === genreTags.length - 1 ? 'disabled' : ''} data-index="${mainIndex}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-down"><path d="m19 12-7 7-7-7"/><path d="M12 5v14"/></svg>
+                            </button>
+                            <button class="delete-main-genre-button text-red-500 hover:text-red-700" data-index="${mainIndex}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="sub-genres-section pl-4 border-l border-gray-300 mt-2">
+                        <h4 class="text-sm font-medium text-gray-600 mb-2">サブジャンル:</h4>
+                        <div class="sub-genre-list space-y-1 min-h-[30px]" data-main-index="${mainIndex}">
+                            ${genreGroup.subGenres.length > 0 ? genreGroup.subGenres.map((subTag, subIndex) => `
+                                <div class="sub-genre-item flex items-center justify-between bg-gray-100 p-1.5 rounded-md text-sm cursor-default"
+                                     data-main-index="${mainIndex}"
+                                     data-sub-index="${subIndex}"
+                                     data-tag-name="${subTag}">
+                                    <span>${subTag}</span>
+                                    <div class="flex space-x-1">
+                                        <button class="move-sub-genre-up-button text-gray-600 hover:text-gray-800 disabled:opacity-50" ${subIndex === 0 ? 'disabled' : ''} data-main-index="${mainIndex}" data-sub-index="${subIndex}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-up"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+                                        </button>
+                                        <button class="move-sub-genre-down-button text-gray-600 hover:text-gray-800 disabled:opacity-50" ${subIndex === genreGroup.subGenres.length - 1 ? 'disabled' : ''} data-main-index="${mainIndex}" data-sub-index="${subIndex}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-down"><path d="m19 12-7 7-7-7"/><path d="M12 5v14"/></svg>
+                                        </button>
+                                        <button class="change-sub-genre-main-button text-purple-500 hover:text-purple-700" data-main-index="${mainIndex}" data-sub-index="${subIndex}">
+                                            <i class="fas fa-exchange-alt text-lg"></i> <!-- Font Awesome exchange icon -->
+                                        </button>
+                                        <button class="delete-sub-genre-button text-red-500 hover:text-red-700" data-main-index="${mainIndex}" data-sub-index="${subIndex}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('') : `<p class="text-gray-500 text-sm">サブジャンルはありません</p>`}
+                        </div>
+                    </div>
+                `;
+                genreListContainer.appendChild(mainGenreItemDiv);
+            });
+
+            // イベントリスナーを再設定
+            setupGenreManagementListeners();
+        }
+
+        /**
+         * ジャンル管理モーダル内のボタンにイベントリスナーを設定する関数
+         */
+        function setupGenreManagementListeners() {
+            // メインジャンル削除
+            genreListContainer.querySelectorAll('.delete-main-genre-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const index = parseInt(e.currentTarget.dataset.index);
+                    deleteMainGenre(index);
+                });
+            });
+            // メインジャンル上へ移動
+            genreListContainer.querySelectorAll('.move-main-genre-up-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const index = parseInt(e.currentTarget.dataset.index);
+                    moveMainGenre(index, -1);
+                });
+            });
+            // メインジャンル下へ移動
+            genreListContainer.querySelectorAll('.move-main-genre-down-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const index = parseInt(e.currentTarget.dataset.index);
+                    moveMainGenre(index, 1);
+                });
+            });
+
+            // メインジャンル名編集
+            genreListContainer.querySelectorAll('.edit-main-genre-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const index = parseInt(e.currentTarget.dataset.index);
+                    const currentNameSpan = genreListContainer.querySelector(`#main-genre-name-${index}`);
+                    const originalName = genreTags[index].name;
+
+                    // Create input field
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = originalName;
+                    input.classList.add('flex-grow', 'p-1.5', 'border', 'border-blue-300', 'rounded-lg', 'text-sm', 'focus:outline-none', 'focus:ring-1', 'focus:ring-blue-500');
+
+                    // Replace span with input
+                    currentNameSpan.replaceWith(input);
+                    input.focus();
+
+                    const handleRename = () => {
+                        const newName = input.value.trim();
+                        // Remove any existing error message
+                        const existingError = mainGenreErrorContainer.querySelector('.temp-error-message');
+                        if (existingError) {
+                            existingError.remove();
+                        }
+
+                        if (!newName) {
+                            showTempErrorMessage(mainGenreErrorContainer, 'ジャンル名を入力してください。');
+                            genreTags[index].name = originalName; // Revert
+                            renderGenreListInModal();
+                            return;
+                        }
+
+                        const newNameLower = newName.toLowerCase();
+
+                        // Check for duplicate main genre names (excluding itself)
+                        const isMainGenreDuplicate = genreTags.some((g, i) => i !== index && g.name.toLowerCase() === newNameLower);
+                        if (isMainGenreDuplicate) {
+                            showTempErrorMessage(mainGenreErrorContainer, 'そのメインジャンル名はすでに存在します。');
+                            genreTags[index].name = originalName; // Revert
+                            renderGenreListInModal();
+                            return;
+                        }
+
+                        // Check for duplicate sub-genre names
+                        const isSubGenreDuplicate = genreTags.some(g =>
+                            g.subGenres.some(sub => sub.toLowerCase() === newNameLower)
+                        );
+                        if (isSubGenreDuplicate) {
+                            showTempErrorMessage(mainGenreErrorContainer, 'その名前は既存のサブジャンルと重複しています。');
+                            genreTags[index].name = originalName; // Revert
+                            renderGenreListInModal();
+                            return;
+                        }
+
+                        // Update the name
+                        genreTags[index].name = newName;
+                        renderGenreListInModal(); // Re-render to show updated name
+                        renderMainGenreFilters(); // Update main filter buttons
+                        filterNotes(); // Re-filter notes if genre name is used in filtering logic (though it's not directly for main genre names in filterNotes currently)
+                    };
+
+                    input.addEventListener('blur', handleRename);
+                    input.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            input.blur(); // Trigger blur to save
+                        }
+                    });
+                });
+            });
+
+            // サブジャンル削除
+            genreListContainer.querySelectorAll('.delete-sub-genre-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const mainIndex = parseInt(e.currentTarget.dataset.mainIndex);
+                    const subIndex = parseInt(e.currentTarget.dataset.subIndex);
+                    deleteSubGenre(mainIndex, subIndex);
+                });
+            });
+            // サブジャンル上へ移動
+            genreListContainer.querySelectorAll('.move-sub-genre-up-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const mainIndex = parseInt(e.currentTarget.dataset.mainIndex);
+                    const subIndex = parseInt(e.currentTarget.dataset.subIndex);
+                    moveSubGenre(mainIndex, subIndex, -1);
+                });
+            });
+            // サブジャンル下へ移動
+            genreListContainer.querySelectorAll('.move-sub-genre-down-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const mainIndex = parseInt(e.currentTarget.dataset.mainIndex);
+                    const subIndex = parseInt(e.currentTarget.dataset.subIndex);
+                    moveSubGenre(mainIndex, subIndex, 1);
+                });
+            });
+
+            // サブジャンルメインジャンル変更ボタン
+            genreListContainer.querySelectorAll('.change-sub-genre-main-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    currentSubGenreToMove.mainIndex = parseInt(e.currentTarget.dataset.mainIndex);
+                    currentSubGenreToMove.subIndex = parseInt(e.currentTarget.dataset.subIndex);
+                    currentSubGenreToMove.tagName = genreTags[currentSubGenreToMove.mainIndex].subGenres[currentSubGenreToMove.subIndex];
+                    openChangeMainGenreModal();
+                });
+            });
+        }
+
+        /**
+         * メインジャンル変更選択モーダルを開く関数
+         */
+        function openChangeMainGenreModal() {
+            mainGenreSelectContainer.innerHTML = '';
+            genreTags.forEach((genreGroup, index) => {
+                const radioDiv = document.createElement('div');
+                radioDiv.classList.add('flex', 'items-center', 'space-x-2');
+                radioDiv.innerHTML = `
+                    <input type="radio" name="selectMainGenre" id="main-genre-radio-${index}" value="${genreGroup.name}" class="form-radio text-blue-600">
+                    <label for="main-genre-radio-${index}" class="text-gray-700">${genreGroup.name}</label>
+                `;
+                mainGenreSelectContainer.appendChild(radioDiv);
+
+                // 現在のメインジャンルをデフォルトで選択
+                if (genreGroup.name === genreTags[currentSubGenreToMove.mainIndex].name) {
+                    radioDiv.querySelector('input').checked = true;
+                }
+            });
+            changeMainGenreModal.classList.remove('hidden', 'opacity-0');
+            changeMainGenreModal.classList.add('flex', 'opacity-100');
+            changeMainGenreErrorContainer.textContent = ''; // Clear previous errors
+        }
+
+        /**
+         * メインジャンル変更選択モーダルを閉じる関数
+         */
+        function closeChangeMainGenreModal() {
+            changeMainGenreModal.classList.remove('flex', 'opacity-100');
+            changeMainGenreModal.classList.add('hidden', 'opacity-0');
+            currentSubGenreToMove = { mainIndex: null, subIndex: null, tagName: null }; // Reset
+        }
+
+        // メインジャンル変更モーダルの「キャンセル」ボタン
+        cancelChangeMainGenreButton.addEventListener('click', closeChangeMainGenreModal);
+
+        // メインジャンル変更モーダルの「変更」ボタン
+        confirmChangeMainGenreButton.addEventListener('click', () => {
+            const selectedRadio = document.querySelector('input[name="selectMainGenre"]:checked');
+            if (!selectedRadio) {
+                showTempErrorMessage(changeMainGenreErrorContainer, 'メインジャンルを選択してください。');
+                return;
+            }
+
+            const newMainGenreName = selectedRadio.value;
+            const oldMainIndex = currentSubGenreToMove.mainIndex;
+            const oldSubIndex = currentSubGenreToMove.subIndex;
+            const tagName = currentSubGenreToMove.tagName;
+
+            const newMainGenreIndex = genreTags.findIndex(g => g.name === newMainGenreName);
+
+            if (newMainGenreIndex === -1) {
+                // Should not happen if radios are generated from genreTags
+                showTempErrorMessage(changeMainGenreErrorContainer, '選択されたメインジャンルが見つかりません。');
+                return;
+            }
+
+            // If attempting to move to the same main genre, just close
+            if (oldMainIndex === newMainGenreIndex) {
+                closeChangeMainGenreModal();
+                return;
+            }
+
+            // Check for duplicate in the target main genre's sub-genres
+            const targetSubGenres = genreTags[newMainGenreIndex].subGenres;
+            if (targetSubGenres.some(sub => sub.toLowerCase() === tagName.toLowerCase())) {
+                showTempErrorMessage(changeMainGenreErrorContainer, `「${tagName}」は移動先のジャンルにすでに存在します。`);
+                return;
+            }
+
+            // Perform the move
+            genreTags[oldMainIndex].subGenres.splice(oldSubIndex, 1); // Remove from old
+            targetSubGenres.push(tagName); // Add to new
+
+            renderGenreListInModal(); // Re-render genre list
+            renderSubGenreFilters(); // Update sub-genre filters
+            filterNotes(); // Re-filter notes
+            closeChangeMainGenreModal();
+        });
+
+
+        /**
+         * 一時的なエラーメッセージを表示するヘルパー関数
+         * @param {HTMLElement} containerElement - エラーメッセージを表示する親要素
+         * @param {string} message - 表示するメッセージ
+         * @param {number} duration - 表示時間 (ミリ秒)
+         */
+        function showTempErrorMessage(containerElement, message, duration = 3000) {
+            // Clear any existing error messages in this container
+            containerElement.textContent = ''; // Clear existing text content
+
+            const errorMessageDiv = document.createElement('div');
+            errorMessageDiv.classList.add('text-red-500', 'text-sm', 'temp-error-message');
+            containerElement.appendChild(errorMessageDiv);
+            errorMessageDiv.textContent = message;
+
+
+            setTimeout(() => {
+                errorMessageDiv.remove();
+            }, duration);
+        }
+
+        /**
+         * 新しいメインジャンルを追加する関数
+         */
+        function addNewMainGenre() {
+            const newName = newMainGenreInput.value.trim();
+            if (!newName) {
+                showTempErrorMessage(mainGenreErrorContainer, 'ジャンル名を入力してください。');
+                return;
+            }
+
+            const newNameLower = newName.toLowerCase();
+
+            // メインジャンル名との重複チェック
+            if (genreTags.some(g => g.name.toLowerCase() === newNameLower)) {
+                showTempErrorMessage(mainGenreErrorContainer, 'そのメインジャンルはすでに存在します。');
+                return;
+            }
+
+            // サブジャンル名との重複チェック
+            const isSubGenreDuplicate = genreTags.some(g =>
+                g.subGenres.some(sub => sub.toLowerCase() === newNameLower)
+            );
+            if (isSubGenreDuplicate) {
+                showTempErrorMessage(mainGenreErrorContainer, 'その名前は既存のサブジャンルと重複しています。');
+                return;
+            }
+
+            genreTags.push({ name: newName, subGenres: [] });
+            newMainGenreInput.value = '';
+            renderGenreListInModal();
+            renderMainGenreFilters();
+        }
+
+        /**
+         * メインジャンルを削除する関数
+         * @param {number} index - 削除するメインジャンルのインデックス
+         */
+        function deleteMainGenre(index) {
+            const deletedGenre = genreTags[index];
+            const deletedGenreName = deletedGenre.name;
+            const deletedSubGenres = deletedGenre.subGenres || [];
+
+            genreTags.splice(index, 1);
+
+            // 削除されたメインジャンルがactiveMainGenresに含まれていたら削除
+            const activeMainGenreIndex = activeMainGenres.indexOf(deletedGenreName);
+            if (activeMainGenreIndex > -1) {
+                activeMainGenres.splice(activeMainGenreIndex, 1);
+            }
+
+            // 削除されたメインジャンルのサブジャンルがselectedGenresに含まれていたら削除
+            selectedGenres = selectedGenres.filter(selectedTag => !deletedSubGenres.includes(selectedTag));
+
+            renderGenreListInModal();
+            renderMainGenreFilters();
+            renderSubGenreFilters(); // Sub-genres might change significantly
+            filterNotes();
+        }
+
+        /**
+         * メインジャンルの並び順を変更する関数
+         * @param {number} currentIndex - 移動するメインジャンルの現在のインデックス
+         * @param {number} direction - 移動方向 (-1: 上, 1: 下)
+         */
+        function moveMainGenre(currentIndex, direction) {
+            const newIndex = currentIndex + direction;
+            if (newIndex >= 0 && newIndex < genreTags.length) {
+                const [removed] = genreTags.splice(currentIndex, 1);
+                genreTags.splice(newIndex, 0, removed);
+                renderGenreListInModal();
+                renderMainGenreFilters();
+            }
+        }
+
+        /**
+         * サブジャンルを削除する関数
+         * @param {number} mainIndex - 親となるメインジャンルのインデックス
+         * @param {number} subIndex - 削除するサブジャンルのインデックス
+         */
+        function deleteSubGenre(mainIndex, subIndex) {
+            if (genreTags[mainIndex] && genreTags[mainIndex].subGenres) {
+                const deletedSubTag = genreTags[mainIndex].subGenres[subIndex];
+                genreTags[mainIndex].subGenres.splice(subIndex, 1);
+                // 削除されたサブタグが選択中のジャンルに含まれていたら、選択解除
+                selectedGenres = selectedGenres.filter(tag => tag !== deletedSubTag);
+                renderGenreListInModal();
+                renderSubGenreFilters(); // サブジャンルフィルターを更新
+                filterNotes();
+            }
+        }
+
+        /**
+         * サブジャンルの並び順を変更する関数
+         * @param {number} mainIndex - 親となるメインジャンルのインデックス
+         * @param {number} currentIndex - 移動するサブジャンルの現在のインデックス
+         * @param {number} direction - 移動方向 (-1: 上, 1: 下)
+         */
+        function moveSubGenre(mainIndex, currentIndex, direction) {
+            if (genreTags[mainIndex] && genreTags[mainIndex].subGenres) {
+                const subGenres = genreTags[mainIndex].subGenres;
+                const newIndex = currentIndex + direction;
+                if (newIndex >= 0 && newIndex < subGenres.length) {
+                    const [removed] = subGenres.splice(currentIndex, 1);
+                    subGenres.splice(newIndex, 0, removed);
+                    renderGenreListInModal();
+                    renderSubGenreFilters(); // サブジャンルフィルターを更新
+                }
+            }
+        }
+
+        /**
+         * 現在のメモに関連するメモを取得し、ソートして返す
+         * @param {string} currentNoteId - 現在表示中のメモのID
+         * @param {string[]} currentNoteTags - 現在表示中のメモのタグ配列
+         * @returns {object[]} - 関連メモの配列 (ソート済み)
+         */
+        function getRelatedNotes(currentNoteId, currentNoteTags) {
+            const related = [];
+            const currentTagsLower = currentNoteTags.map(tag => tag.toLowerCase());
+
+            notesData.forEach(note => {
+                if (note.id === currentNoteId) return; // 現在のメモ自身は除外
+
+                const noteTagsLower = note.tags ? note.tags.map(tag => tag.toLowerCase()) : [];
+                const sharedTags = noteTagsLower.filter(tag => currentTagsLower.includes(tag));
+                const sharedCount = sharedTags.length;
+
+                if (sharedCount > 0) {
+                    related.push({
+                        ...note, // メモ全体をコピー
+                        sharedTagCount: sharedCount // 共有タグ数を追加
+                    });
+                }
+            });
+
+            // ソート: 共有タグ数が多い順、同じ場合は作成日時の新しい順
+            related.sort((a, b) => {
+                if (b.sharedTagCount !== a.sharedTagCount) {
+                    return b.sharedTagCount - a.sharedTagCount;
+                }
+                // 日付文字列をDateオブジェクトに変換して比較
+                const dateA = new Date(a.dateTime.replace(/\//g, '-')); // Replace / with - for consistent Date parsing
+                const dateB = new Date(b.dateTime.replace(/\//g, '-'));
+                return dateB.getTime() - dateA.getTime();
+            });
+
+            return related;
+        }
+
+
+        // 初期ロード時にメモとジャンルフィルターをレンダリング
+        renderNotes();
+        renderMainGenreFilters(); // メインジャンルを最初にレンダリング
+        renderSubGenreFilters(); // 初期ロード時にすべてのサブジャンルを表示
+
+
+        // イベントリスナーの設定
+
+        // 「メモ追加」ボタンがクリックされたらモーダルを開く
+        addNoteButton.addEventListener('click', () => {
+            isEditing = false;
+            openNoteModal("新しいメモを追加");
+        });
+
+        // メモ追加/編集モーダルの「キャンセル」ボタンがクリックされたらモーダルを閉じる
+        cancelNoteButton.addEventListener('click', closeNoteModal);
+
+        // メモ追加/編集モーダルの「保存」ボタンがクリックされたらメモを処理
+        saveNoteButton.addEventListener('click', () => {
+            const title = noteTitleInput.value.trim();
+            const content = noteContentInput.value.trim();
+
+            // 動的に追加されたタグデータを収集
+            const tagInputs = dynamicTagInputs.querySelectorAll('.tag-input-block input[type="text"]');
+            let rawTags = Array.from(tagInputs).map(input => input.value.trim()).filter(tag => tag !== '');
+
+            const mainGenreNamesLower = new Set(genreTags.map(g => g.name.toLowerCase()));
+
+            // メインジャンル名をタグとして登録できないようにエラーチェック
+            for (const tag of rawTags) {
+                if (mainGenreNamesLower.has(tag.toLowerCase())) {
+                    showTempErrorMessage(noteModalErrorContainer, `「${tag}」はメインジャンル名のためタグとして登録できません。`);
+                    return; // 保存処理を中断
+                }
+            }
+
+            // エラーがなければ、重複を排除し、メインジャンル名と重複しないタグのみを保持
+            let uniqueTags = [...new Set(rawTags)];
+
+
+            const hideMainContent = hideMainContentCheckbox.checked; // チェックボックスの状態を取得
+
+            if (title === '' || content === '') {
+                showTempErrorMessage(noteModalErrorContainer, "タイトルと内容を入力してください。");
+                return;
+            }
+
+            // 新しいタグをジャンルリストに自動追加
+            uniqueTags.forEach(newTag => {
+                const newTagLower = newTag.toLowerCase();
+                let found = false;
+
+                // 既存のメインジャンルに重複がないかチェック
+                // `existingMainGenreNamesLower` はこのスコープ内では定義されていないため、グローバルな `genreTags` を直接使用する
+                if (genreTags.some(g => g.name.toLowerCase() === newTagLower)) {
+                    found = true;
+                }
+
+                // 既存のサブジャンルに重複がないかチェック
+                if (!found) {
+                    for (const genreGroup of genreTags) {
+                        if (genreGroup.subGenres.some(sub => sub.toLowerCase() === newTagLower)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+
+                // 重複がなければ「ジャンルなし」メインジャンルに追加
+                if (!found) {
+                    let noGenreGroup = genreTags.find(g => g.name === 'ジャンルなし');
+                    if (!noGenreGroup) {
+                        noGenreGroup = { name: 'ジャンルなし', subGenres: [] };
+                        genreTags.push(noGenreGroup);
+                    }
+                    // Ensure no duplicates within "ジャンルなし"
+                    if (!noGenreGroup.subGenres.some(sub => sub.toLowerCase() === newTagLower)) {
+                        noGenreGroup.subGenres.push(newTag);
+                    }
+                }
+            });
+
+
+            // 動的に追加されたメディアデータを収集
+            const mediaInputs = dynamicMediaInputs.querySelectorAll('.media-input-block');
+            const mediaArray = [];
+            mediaInputs.forEach(block => {
+                const type = block.querySelector('select').value;
+                const value = block.querySelector('textarea').value.trim();
+                if (value) { // 値がある場合のみ追加
+                    if (type === 'markdown') {
+                        mediaArray.push({ type: type, content: value });
+                    } else {
+                        mediaArray.push({ type: type, url: value });
+                    }
+                }
+            });
+
+            if (isEditing && editingNoteId) {
+                // 編集モードの場合：既存のメモを更新
+                const noteIndex = notesData.findIndex(note => note.id === editingNoteId);
+                if (noteIndex !== -1) {
+                    notesData[noteIndex].title = title;
+                    notesData[noteIndex].content = content;
+                    notesData[noteIndex].tags = uniqueTags; // タグを更新
+                    notesData[noteIndex].media = mediaArray; // メディア配列を更新
+                    notesData[noteIndex].hideMainContent = hideMainContent; // チェックボックスの状態を更新
+                    // 日付は更新しない
+                }
+            } else {
+                // 新規追加モードの場合：新しいメモを作成
+                const now = new Date();
+                const dateTime = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                const newNote = {
+                    id: 'note-' + Date.now(),
+                    title: title,
+                    content: content,
+                    tags: uniqueTags, // タグを保存
+                    media: mediaArray, // メディア配列を保存
+                    dateTime: dateTime,
+                    hideMainContent: hideMainContent // チェックボックスの状態を保存
+                };
+                notesData.unshift(newNote); // 配列の先頭に追加
+            }
+            renderNotes(); // メモを再レンダリング
+            renderMainGenreFilters(); // Ensure filters are updated with new genre
+            renderSubGenreFilters(); // Ensure filters are updated with new genre
+            closeNoteModal(); // モーダルを閉じる
+        });
+
+        // モーダルの外側をクリックしたらモーダルを閉じる (共通処理)
+        function setupModalOverlayClose(modalElement, closeFunction) {
+            modalElement.addEventListener('mousedown', (event) => {
+                if (event.target === modalElement) {
+                    isMouseDownOnOverlay = true;
+                }
+            });
+            modalElement.addEventListener('mouseup', (event) => {
+                if (isMouseDownOnOverlay && event.target === modalElement) {
+                    closeFunction();
+                }
+                isMouseDownOnOverlay = false; // フラグをリセット
+            });
+        }
+
+        setupModalOverlayClose(noteModal, closeNoteModal);
+        setupModalOverlayClose(deleteConfirmModal, closeDeleteConfirmModal);
+        setupModalOverlayClose(detailModal, closeDetailModal);
+        setupModalOverlayClose(genreManagementModal, closeGenreManagementModal);
+        setupModalOverlayClose(changeMainGenreModal, closeChangeMainGenreModal);
+        setupModalOverlayClose(settingsModal, closeSettingsModal); // 設定モーダルにも適用
+        setupModalOverlayClose(newConfirmModal, closeNewConfirmModal); // 新規作成確認モーダルにも適用
+
+
+        // エラーメッセージをクリアするイベントリスナー (入力があるたびに)
+        noteTitleInput.addEventListener('input', () => {
+            noteModalErrorContainer.textContent = '';
+        });
+        noteContentInput.addEventListener('input', () => {
+            noteModalErrorContainer.textContent = '';
+        });
+
+        // メモカード内の編集・削除ボタン、またはメモカード全体に対するイベントリスナー（イベント委譲）
+        notesGrid.addEventListener('click', (event) => {
+            const target = event.target;
+            const noteCard = target.closest('.note-card'); // クリックされた要素の最も近い親の.note-cardを取得
+
+            if (!noteCard) return; // メモカード内でなければ何もしない
+
+            const noteId = noteCard.dataset.id;
+            const note = notesData.find(n => n.id === noteId);
+
+            if (!note) return; // メモデータが見つからなければ何もしない
+
+            // 編集ボタンがクリックされた場合
+            if (target.closest('.edit-note-button')) {
+                event.stopPropagation(); // メモカード全体のクリックイベントを防ぐ
+                isEditing = true;
+                editingNoteId = noteId; // 編集中のメモIDを保存
+                openNoteModal("メモを編集", note);
+            }
+            // 削除ボタンがクリックされた場合
+            else if (target.closest('.delete-note-button')) {
+                event.stopPropagation(); // メモカード全体のクリックイベントを防ぐ
+                editingNoteId = noteId; // 削除対象のメモIDを保存
+                openDeleteConfirmModal();
+            }
+            // メモカード全体がクリックされた場合（編集・削除ボタン以外）
+            else {
+                openDetailModal(note); // メモ詳細表示モーダルを開く
+            }
+        });
+
+        /**
+         * メモを検索フィルターに基づいて表示/非表示にする関数
+         */
+        function filterNotes() {
+            const searchTerm = searchNotesInput.value.toLowerCase().trim(); // 検索キーワードを小文字に変換し、前後の空白を削除
+            const selectedScope = document.querySelector('input[name="searchScope"]:checked').value; // 選択された検索範囲
+            const allNoteCards = notesGrid.querySelectorAll('.note-card');
+
+            // Determine if tags should be visible based on current layout
+            const tagsVisibleInCard = currentLayout === 'single-column';
+
+            allNoteCards.forEach(card => {
+                const noteId = card.dataset.id;
+                const note = notesData.find(n => n.id === noteId); // notesDataから該当メモを取得
+
+                if (!note) { // メモデータが見つからない場合はスキップ
+                    card.style.display = 'none';
+                    return;
+                }
+
+                const title = note.title.toLowerCase();
+                const content = note.content.toLowerCase();
+                // タグが存在しない場合は空の配列として扱う
+                const tags = note.tags ? note.tags.map(tag => tag.toLowerCase()) : [];
+
+                let matchesSearchTerm = false;
+                if (searchTerm === '') {
+                    matchesSearchTerm = true; // 検索キーワードが空の場合は常にtrue
+                } else {
+                    if (selectedScope === 'both') {
+                        matchesSearchTerm = title.includes(searchTerm) || content.includes(searchTerm) || tags.some(tag => tag.includes(searchTerm));
+                    } else if (selectedScope === 'title') {
+                        matchesSearchTerm = title.includes(searchTerm);
+                    } else if (selectedScope === 'content') {
+                        matchesSearchTerm = content.includes(searchTerm);
+                    } else if (selectedScope === 'tags') { // 新しいタグ検索スコープ
+                        matchesSearchTerm = tags.some(tag => tag.includes(searchTerm));
+                    }
+                }
+
+                let matchesGenreFilter = true;
+
+                // 1. Filter by active main genres (if any selected)
+                if (activeMainGenres.length > 0) {
+                    let matchesAnyMainGenre = false;
+                    for (const mainGenreName of activeMainGenres) {
+                        const activeMainGenreSubTags = genreTags.find(g => g.name === mainGenreName)?.subGenres || [];
+                        // Check if any of the note's tags are among the sub-genres of the *current* active main genre.
+                        if (tags.some(noteTag => activeMainGenreSubTags.map(t => t.toLowerCase()).includes(noteTag))) {
+                            matchesAnyMainGenre = true;
+                            break;
+                        }
+                    }
+                    matchesGenreFilter = matchesAnyMainGenre;
+                }
+
+                // 2. Further filter by explicitly selected sub-genres (if any)
+                if (selectedGenres.length > 0) {
+                    // If selectedGenres are present, the note must match at least one of them.
+                    // This condition is applied *in addition* to the main genre filter if one is active.
+                    matchesGenreFilter = matchesGenreFilter && selectedGenres.some(selectedTag => tags.includes(selectedTag));
+                }
+
+                card.style.display = (matchesSearchTerm && matchesGenreFilter) ? '' : 'none';
+
+                // Toggle tag visibility based on layout
+                const tagDisplayElement = card.querySelector('.tag-display-on-card');
+                if (tagDisplayElement) {
+                    if (tagsVisibleInCard) {
+                        tagDisplayElement.style.display = 'flex'; // Show tags in single column
+                    } else {
+                        tagDisplayElement.style.display = 'none'; // Hide tags in multi-column
+                    }
+                }
+            });
+        }
+
+        // 検索入力欄のイベントリスナー
+        searchNotesInput.addEventListener('input', filterNotes);
+
+        // 検索範囲ラジオボタンのイベントリスナー
+        searchScopeRadios.forEach(radio => {
+            radio.addEventListener('change', filterNotes);
+        });
+
+        // フィルターボタンのクリックイベント
+        filterButton.addEventListener('click', (event) => {
+            event.stopPropagation(); // ドキュメントクリックイベントへの伝播を防ぐ
+            filterMenu.classList.toggle('hidden');
+        });
+
+        // ドキュメント全体へのクリックイベント（フィルターメニューを閉じるため）
+        document.addEventListener('click', (event) => {
+            // クリックされた要素がフィルターボタンでもメニュー内でもない場合、メニューを閉じる
+            if (!filterMenu.contains(event.target) && !filterButton.contains(event.target)) {
+                filterMenu.classList.add('hidden');
+            }
+        });
+
+        /**
+         * レイアウトを切り替える関数
+         */
+        function toggleLayout() {
+            if (currentLayout === 'multi-column') {
+                // シングルカラムに切り替え
+                notesGrid.classList.remove('md:grid-cols-2', 'lg:grid-cols-3');
+                notesGrid.classList.add('grid-cols-1');
+                layoutMultiIcon.classList.add('hidden');
+                layoutSingleIcon.classList.remove('hidden');
+                currentLayout = 'single-column';
+            } else {
+                // マルチカラムに切り替え
+                notesGrid.classList.remove('grid-cols-1');
+                notesGrid.classList.add('md:grid-cols-2', 'lg:grid-cols-3');
+                layoutMultiIcon.classList.remove('hidden');
+                layoutSingleIcon.classList.add('hidden');
+                currentLayout = 'multi-column';
+            }
+            // レイアウト変更後、メモを再レンダリングして適用
+            renderNotes(); // This will call filterNotes, which handles tag visibility
+        }
+
+        // レイアウト切り替えボタンのイベントリスナー
+        toggleLayoutButton.addEventListener('click', toggleLayout);
+
+        // 「メディアを追加」ボタンのイベントリスナー
+        addMediaInputButton.addEventListener('click', () => addMediaInputBlock());
+
+        // 「タグを追加」ボタンのイベントリスナー (新規)
+        addTagInputButton.addEventListener('click', () => addTagInputBlock());
+
+
+        // フッターボタンの画面遷移機能 (設定ボタンをモーダル表示に変更)
+        settingsButton.addEventListener('click', () => {
+            openSettingsModal();
+        });
+
+        // ジャンル編集ボタンのイベントリスナー
+        editGenresButton.addEventListener('click', openGenreManagementModal);
+
+        // ジャンル選択解除ボタンのイベントリスナー
+        clearGenreSelectionButton.addEventListener('click', () => {
+            selectedGenres = []; // 選択中のサブジャンルをすべてクリア
+            activeMainGenres = []; // アクティブなメインジャンルもクリア
+            renderMainGenreFilters(); // メインジャンルフィルターの表示を更新
+            renderSubGenreFilters(); // サブジャンルフィルターの表示を更新 (すべてのサブジャンルが表示される)
+            filterNotes(); // メモを再フィルターしてすべて表示
+        });
+
+        // ジャンルフィルター表示/非表示トグルボタンのイベントリスナー
+        genreFilterToggleButton.addEventListener('click', () => {
+            if (areGenreFiltersVisible) {
+                genreFilterContentContainer.classList.add('hidden');
+                arrowUpIcon.classList.add('hidden');
+                arrowDownIcon.classList.remove('hidden');
+            } else {
+                genreFilterContentContainer.classList.remove('hidden');
+                arrowUpIcon.classList.remove('hidden');
+                arrowDownIcon.classList.add('hidden');
+            }
+            areGenreFiltersVisible = !areGenreFiltersVisible;
+        });
+
+        // ジャンル管理モーダル内のイベントリスナー
+        addMainGenreButton.addEventListener('click', addNewMainGenre);
+        newMainGenreInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                addNewMainGenre();
+            }
+        });
+        closeGenreManagementModalButton.addEventListener('click', closeGenreManagementModal);
+
+        /**
+         * メモのタグをスキャンし、ジャンルリストに未登録のタグを「ジャンルなし」に追加する
+         */
+        function scanAndAddTagsToGenres() {
+            let noGenreGroup = genreTags.find(g => g.name === 'ジャンルなし');
+            if (!noGenreGroup) {
+                noGenreGroup = { name: 'ジャンルなし', subGenres: [] };
+                genreTags.push(noGenreGroup);
+            }
+
+            const existingMainGenreNamesLower = new Set(genreTags.map(g => g.name.toLowerCase()));
+            const existingSubGenreNamesLower = new Set();
+            genreTags.forEach(g => {
+                g.subGenres.forEach(sub => existingSubGenreNamesLower.add(sub.toLowerCase()));
+            });
+
+            notesData.forEach(note => {
+                if (note.tags) {
+                    note.tags.forEach(tag => {
+                        const tagLower = tag.toLowerCase();
+                        // Check if the tag is already a main genre name or an existing sub-genre
+                        if (existingMainGenreNamesLower.has(tagLower) || existingSubGenreNamesLower.has(tagLower)) {
+                            return; // Skip if it's a main genre name or already a sub-genre
+                        }
+
+                        // If not found, add to "ジャンルなし" sub-genres
+                        if (!noGenreGroup.subGenres.some(sub => sub.toLowerCase() === tagLower)) {
+                            noGenreGroup.subGenres.push(tag);
+                            existingSubGenreNamesLower.add(tagLower); // Add to set to avoid re-adding
+                        }
+                    });
+                }
+            });
+
+            // Re-render all relevant UI elements
+            renderGenreListInModal();
+            renderMainGenreFilters();
+            renderSubGenreFilters();
+            filterNotes();
+        }
+
+        // タグ再読み込みボタンのイベントリスナー
+        reloadTagsButton.addEventListener('click', scanAndAddTagsToGenres);
+
+        // メモ詳細モーダルの「閉じる」ボタンのイベントリスナー
+        closeDetailModalButton.addEventListener('click', (event) => {
+            event.stopPropagation(); // イベントが親要素に伝播するのを防ぐ
+            closeDetailModal();
+        });
+
+        // --- 設定モーダル関連の関数とイベントリスナー ---
+
+        /**
+         * 設定モーダルを開く関数
+         */
+        function openSettingsModal() {
+            // 現在の設定をモーダルUIに反映
+            applySettings(currentSettings, true); // trueを渡してモーダルUIも更新
+
+            settingsModal.classList.remove('hidden', 'opacity-0');
+            settingsModal.classList.add('flex', 'opacity-100');
+        }
+
+        /**
+         * 設定モーダルを閉じる関数
+         */
+        function closeSettingsModal() {
+            settingsModal.classList.remove('flex', 'opacity-100');
+            settingsModal.classList.add('hidden', 'opacity-0');
+            // モーダルを閉じる際、最後に保存された設定を再度適用し、未保存の変更をリセット
+            currentSettings = loadSettings();
+            applySettings(currentSettings);
+        }
+
+        // 設定モーダルのテーマ変更ラジオボタン
+        settingsLightThemeRadio.addEventListener('change', () => {
+            currentSettings.theme = 'light';
+            applySettings(currentSettings); // メインUIに即時反映
+        });
+        settingsDarkThemeRadio.addEventListener('change', () => {
+            currentSettings.theme = 'dark';
+            applySettings(currentSettings); // メインUIに即時反映
+        });
+
+        // 設定モーダルの文字サイズスライダー
+        settingsFontSizeSlider.addEventListener('input', (event) => {
+            currentSettings.fontSize = parseInt(event.target.value);
+            applySettings(currentSettings); // メインUIに即時反映
+            settingsFontSizeValueSpan.textContent = `${currentSettings.fontSize}px`; // モーダル内の表示も更新
+        });
+
+        // 設定モーダルのマークダウン行間スライダー
+        settingsLineHeightSlider.addEventListener('input', (event) => {
+            currentSettings.lineHeight = parseFloat(event.target.value);
+            applySettings(currentSettings); // メインUIに即時反映
+            settingsLineHeightValueSpan.textContent = currentSettings.lineHeight.toFixed(1); // モーダル内の表示も更新
+        });
+
+        // 設定モーダルの「キャンセル」ボタン
+        cancelSettingsButton.addEventListener('click', closeSettingsModal);
+
+        // 設定モーダルの「保存」ボタン
+        saveSettingsButtonModal.addEventListener('click', () => {
+            currentSettings.memoBookTitle = memoBookTitleInput.value.trim() || defaultSettings.memoBookTitle; // Save title
+            saveSettings(currentSettings); // 現在の設定を保存
+            alert('設定が保存されました！'); // ユーザーへのフィードバック
+            closeSettingsModal(); // モーダルを閉じる
+        });
+
+        // アラートの代替としてカスタムモーダルを使用する例 (簡易版)
+        function alert(message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.classList.add('fixed', 'bottom-4', 'right-4', 'bg-blue-500', 'text-white', 'px-4', 'py-2', 'rounded-lg', 'shadow-lg', 'z-50', 'transition-opacity', 'duration-300', 'opacity-0');
+            alertDiv.textContent = message;
+            document.body.appendChild(alertDiv);
+
+            setTimeout(() => {
+                alertDiv.classList.add('opacity-100');
+            }, 10); // 短い遅延でアニメーション開始
+
+            setTimeout(() => {
+                alertDiv.classList.remove('opacity-100');
+                alertDiv.classList.add('opacity-0');
+                alertDiv.addEventListener('transitionend', () => alertDiv.remove());
+            }, 3000);
+        }
+
+        /**
+         * ノートデータをXLSX形式でエクスポートする関数
+         */
+        function exportNotesToXLSX() {
+            const memoBookTitle = currentSettings.memoBookTitle || '私のメモブック';
+            let maxMediaCount = 0;
+
+            // 1. Determine maxMediaCount
+            notesData.forEach(note => {
+                if (note.media && note.media.length > maxMediaCount) {
+                    maxMediaCount = note.media.length;
+                }
+            });
+
+            // 2. Prepare header row
+            const headerRow = [
+                'メインジャンル',
+                'サブジャンル',
+                'メモID',
+                '作成日時',
+                'タグ',
+                'メモ本文'
+            ];
+            for (let i = 1; i <= maxMediaCount; i++) {
+                headerRow.push(`メディア${i}`);
+            }
+
+            // 3. Prepare data rows
+            const data = [];
+            data.push([memoBookTitle]); // A1 cell for memo book title
+            data.push(headerRow);       // Row 2 for column titles
+
+            // Sort notesData by dateTime for consistent memo IDs
+            const sortedNotes = [...notesData].sort((a, b) => {
+                const dateA = new Date(a.dateTime.replace(/\//g, '-'));
+                const dateB = new Date(b.dateTime.replace(/\//g, '-'));
+                return dateA.getTime() - dateB.getTime();
+            });
+
+            let memoIdCounter = 1; // Initialize memo ID counter
+
+            sortedNotes.forEach(note => {
+                const noteTagsLower = note.tags ? note.tags.map(tag => tag.toLowerCase()) : [];
+                let mainGenresForNote = new Set();
+
+                // Find main genres based on note's tags
+                genreTags.forEach(mainGenreGroup => {
+                    if (mainGenreGroup.subGenres) {
+                        mainGenreGroup.subGenres.forEach(subTag => {
+                            if (noteTagsLower.includes(subTag.toLowerCase())) {
+                                mainGenresForNote.add(mainGenreGroup.name);
+                            }
+                        });
+                    }
+                });
+
+                // If no main genre found, or note has no tags, assign to "ジャンルなし"
+                if (mainGenresForNote.size === 0) {
+                    mainGenresForNote.add('ジャンルなし');
+                }
+
+                mainGenresForNote.forEach(mainGenreName => {
+                    const rowData = [];
+                    rowData.push(mainGenreName); // メインジャンル (A列)
+                    rowData.push(note.tags ? note.tags.join(', ') : ''); // サブジャンル (B列 - all tags as sub-genres)
+                    rowData.push(memoIdCounter); // メモID (C列) - Use sequential ID
+                    rowData.push(note.dateTime); // 作成日時 (D列)
+                    rowData.push(note.tags ? note.tags.join(', ') : ''); // タグ (E列 - same as B for now, as per request)
+                    rowData.push(note.content);  // メモ本文 (F列)
+
+                    // Add media content
+                    if (note.media) {
+                        note.media.forEach(mediaItem => {
+                            // Ensure media content is properly quoted for CSV-like export
+                            const mediaContent = mediaItem.type === 'markdown' ? mediaItem.content : mediaItem.url;
+                            // Escape internal quotes by doubling them
+                            const escapedMediaContent = mediaContent ? mediaContent.replace(/"/g, '""') : '';
+                            rowData.push(`"${mediaItem.type}","${escapedMediaContent}"`);
+                        });
+                    }
+                    // Fill remaining media columns with empty strings if maxMediaCount is higher
+                    for (let i = (note.media ? note.media.length : 0); i < maxMediaCount; i++) {
+                        rowData.push('');
+                    }
+                    data.push(rowData);
+                });
+                memoIdCounter++; // Increment for the next unique note
+            });
+
+            // 4. Create worksheet and workbook
+            const ws = XLSX.utils.aoa_to_sheet(data);
+
+            // Merge A1 cell if there are multiple columns in the header
+            if (headerRow.length > 1) {
+                ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headerRow.length - 1 } }];
+            }
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'メモ一覧'); // Sheet name
+
+            // 5. Write file
+            XLSX.writeFile(wb, 'メモ一覧.xlsx');
+            alert('メモがXLSX形式でエクスポートされました！');
+        }
+
+        // Attach event listener for XLSX export button
+        exportXLSXButton.addEventListener('click', exportNotesToXLSX);
+
+        // --- 新規作成機能 ---
+        /**
+         * 新規作成確認モーダルを開く関数
+         */
+        function openNewConfirmModal() {
+            newConfirmModal.classList.remove('hidden', 'opacity-0');
+            newConfirmModal.classList.add('flex', 'opacity-100');
+        }
+
+        /**
+         * 新規作成確認モーダルを閉じる関数
+         */
+        function closeNewConfirmModal() {
+            newConfirmModal.classList.remove('flex', 'opacity-100');
+            newConfirmModal.classList.add('hidden', 'opacity-0');
+        }
+
+        /**
+         * 新規メモを作成（データを初期化）する関数
+         */
+        function createNewMemo() {
+            notesData = []; // メモデータをクリア
+            genreTags = [ // ジャンルデータを初期化
+                { name: '仕事', subGenres: ['タスク', 'プロジェクト', 'ミーティング'] },
+                { name: '学習', subGenres: ['Python', 'JavaScript', '数学'] },
+                { name: '個人', subGenres: ['買い物', '運動', 'レシピ', '旅行', '緊急'] },
+                { name: 'ジャンルなし', subGenres: [] }
+            ];
+            currentSettings.memoBookTitle = 'メモブック１'; // タイトルをリセット
+            saveSettings(currentSettings); // 設定を保存
+
+            // UIを更新
+            renderNotes();
+            renderMainGenreFilters();
+            renderSubGenreFilters();
+            applySettings(currentSettings); // 新しいタイトルをヘッダーに適用
+            closeNewConfirmModal(); // モーダルを閉じる
+            alert('新規メモブックが作成されました！');
+        }
+
+        // 「新規作成」ボタンのイベントリスナー
+        newMemoButton.addEventListener('click', () => {
+            if (notesData.length > 0) {
+                openNewConfirmModal(); // メモがある場合、確認モーダルを表示
+            } else {
+                createNewMemo(); // メモがない場合、直接新規作成
+            }
+        });
+
+        // 新規作成確認モーダルの「キャンセル」ボタン
+        cancelNewButton.addEventListener('click', closeNewConfirmModal);
+
+        // 新規作成確認モーダルの「はい (保存して新規作成)」ボタン
+        confirmSaveNewButton.addEventListener('click', () => {
+            exportNotesToXLSX(); // 現在のメモを保存
+            createNewMemo(); // その後新規作成
+        });
+
+        // 新規作成確認モーダルの「いいえ (破棄して新規作成)」ボタン
+        confirmDiscardNewButton.addEventListener('click', () => {
+            createNewMemo(); // 保存せずに新規作成
+        });
+
+        // --- 読み込む機能 ---
+        /**
+         * メディア文字列を解析してオブジェクトに変換する関数
+         * @param {string} mediaString - XLSXから読み込んだメディアの文字列 (例: '"image","https://example.com/img.jpg"')
+         * @returns {object|null} 解析されたメディアオブジェクトまたはnull
+         */
+        function parseMediaString(mediaString) {
+            if (!mediaString || typeof mediaString !== 'string') return null;
+
+            // 正規表現で "type","value" 形式を解析
+            // value に含まれる可能性のあるエスケープされた二重引用符 (つまり `""`) を考慮
+            const match = mediaString.match(/^"([^"]*)","((?:[^"]|"")*)"$/);
+
+            if (match && match.length === 3) {
+                const type = match[1];
+                let value = match[2];
+                // エスケープされた二重引用符を元に戻す (例: `""` -> `"`)
+                value = value.replace(/""/g, '"');
+
+                if (type === 'markdown') {
+                    return { type: type, content: value };
+                } else {
+                    return { type: type, url: value };
+                }
+            }
+            console.warn("メディア文字列の解析に失敗しました:", mediaString);
+            return null;
+        }
+
+        // 「読み込む」ボタンのイベントリスナー
+        loadXLSXButton.addEventListener('click', () => {
+            xlsxFileInput.click(); // 非表示のファイル入力要素をクリック
+        });
+
+        // ファイルが選択されたときのイベントリスナー
+        xlsxFileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+
+                    // A1セルからメモブックタイトルを読み込む
+                    let loadedMemoBookTitle = '読み込んだメモブック'; // デフォルト値
+                    if (worksheet['A1'] && worksheet['A1'].v) {
+                        loadedMemoBookTitle = String(worksheet['A1'].v);
+                    }
+
+                    // データをJSON形式で読み込む (ヘッダー行をスキップしてデータ行から開始)
+                    // header: 1 は、シートの各行を配列として取得することを意味します
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (rows.length < 2) {
+                        alert('XLSXファイルに有効なメモデータが見つかりませんでした。');
+                        return;
+                    }
+
+                    // ヘッダー行を特定 (2行目)
+                    const headerRow = rows[1];
+                    const newNotesData = [];
+                    const newGenreTags = new Map(); // ジャンルを動的に構築するためのMap
+
+                    // データ行の開始インデックス (3行目から)
+                    for (let i = 2; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (!row || row.length === 0) continue; // 空行をスキップ
+
+                        // カラムのインデックスをヘッダーから動的に取得
+                        const getColumnIndex = (colName) => headerRow.indexOf(colName);
+
+                        const mainGenreCol = getColumnIndex('メインジャンル');
+                        const subGenreCol = getColumnIndex('サブジャンル'); // これはタグ全体として使う
+                        const memoIdCol = getColumnIndex('メモID');
+                        const dateTimeCol = getColumnIndex('作成日時');
+                        const tagsCol = getColumnIndex('タグ');
+                        const contentCol = getColumnIndex('メモ本文');
+
+                        const title = row[getColumnIndex('メモ本文')] || ''; // タイトルはメモ本文の最初の数行から生成するか、別途カラムがあればそれを使う
+                        // ここでは、メモ本文の最初の行をタイトルとして暫定的に使用するか、
+                        // もしエクスポート時にタイトルカラムがあればそれを使うべきです。
+                        // 現在のコードではタイトルカラムがないため、ここではメモ本文の最初の部分を使用します。
+                        // あるいは、メモ本文がタイトルとしてエクスポートされている場合、そのカラムをタイトルとして使用します。
+                        // ユーザーの意図を考慮し、ここではタイトルはメモ本文の最初の部分から取得するとします。
+                        // ただし、XLSXのエクスポートでは「メモ本文」と「タイトル」が分かれているわけではないので、
+                        // 読み込み時に「メモ本文」をタイトルとして使うのは不適切かもしれません。
+                        // 既存のnotesDataの構造に合わせて、XLSXからはtitleとcontentを読み込むように調整します。
+                        // 現在のXLSX出力では「メモ本文」しかないので、それをタイトルと内容の両方に割り当てます。
+                        // もしXLSXにタイトルカラムがあれば、それを使うべきです。
+                        const noteTitle = row[getColumnIndex('メモ本文')] ? String(row[getColumnIndex('メモ本文')]).split('\n')[0].substring(0, 50) : '無題のメモ';
+                        const noteContent = row[contentCol] ? String(row[contentCol]) : '';
+
+                        const noteDateTime = row[dateTimeCol] ? String(row[dateTimeCol]) : '';
+                        const noteTagsRaw = row[tagsCol] ? String(row[tagsCol]) : '';
+                        const noteTags = noteTagsRaw.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+
+                        const noteMedia = [];
+                        for (let j = 1; j <= maxMediaCount; j++) {
+                            const mediaCol = getColumnIndex(`メディア${j}`);
+                            if (mediaCol !== -1 && row[mediaCol]) {
+                                const mediaItem = parseMediaString(String(row[mediaCol]));
+                                if (mediaItem) {
+                                    noteMedia.push(mediaItem);
+                                }
+                            }
+                        }
+
+                        const newNote = {
+                            id: 'note-' + Date.now() + '-' + i, // 読み込み時に新しいユニークIDを付与
+                            title: noteTitle,
+                            content: noteContent,
+                            dateTime: noteDateTime,
+                            tags: noteTags,
+                            media: noteMedia,
+                            hideMainContent: false // XLSXにはこの情報がないため、デフォルトでfalse
+                        };
+                        newNotesData.push(newNote);
+
+                        // ジャンルタグを構築
+                        noteTags.forEach(tag => {
+                            const tagLower = tag.toLowerCase();
+                            let foundInExistingGenres = false;
+                            for (const genreGroup of genreTags) {
+                                if (genreGroup.name.toLowerCase() === tagLower) {
+                                    foundInExistingGenres = true;
+                                    break;
+                                }
+                                if (genreGroup.subGenres.some(sub => sub.toLowerCase() === tagLower)) {
+                                    foundInExistingGenres = true;
+                                    break;
+                                }
+                            }
+
+                            if (!foundInExistingGenres) {
+                                let noGenreGroup = genreTags.find(g => g.name === 'ジャンルなし');
+                                if (!noGenreGroup) {
+                                    noGenreGroup = { name: 'ジャンルなし', subGenres: [] };
+                                    genreTags.push(noGenreGroup);
+                                }
+                                if (!noGenreGroup.subGenres.some(sub => sub.toLowerCase() === tagLower)) {
+                                    noGenreGroup.subGenres.push(tag);
+                                }
+                            }
+                        });
+                    }
+
+                    // データを更新
+                    notesData = newNotesData;
+                    currentSettings.memoBookTitle = loadedMemoBookTitle;
+                    saveSettings(currentSettings);
+
+                    // UIを更新
+                    renderNotes();
+                    renderMainGenreFilters();
+                    renderSubGenreFilters();
+                    applySettings(currentSettings); // 新しいタイトルをヘッダーに適用
+
+                    alert('XLSXファイルが正常に読み込まれました！');
+
+                } catch (error) {
+                    console.error('XLSXファイルの読み込み中にエラーが発生しました:', error);
+                    alert('XLSXファイルの読み込みに失敗しました。ファイル形式が正しいか確認してください。');
+                } finally {
+                    // ファイル入力要素の値をクリアして、同じファイルでも再度changeイベントが発火するようにする
+                    xlsxFileInput.value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    </script>
+</body>
+</html>

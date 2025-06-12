@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メモアプリ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MathJax CSS and Script -->
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    </script>
+    <script>
+        // MathJaxの基本設定
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']], // インライン数式のデリミタ
+                displayMath: [['$$', '$$'], ['\\[', '\\]']] // ディスプレイ数式のデリミタ
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <style>
+        /* Google Fonts - Inter */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f0f0; /* 全体の背景色 */
+        }
+        /* カスタムスクロールバーのスタイル */
+        .scrollable-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollable-content::-webkit-scrollbar-track {
+            background: #e0e0e0;
+            border-radius: 10px;
+        }
+        .scrollable-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .scrollable-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* モーダルの表示/非表示アニメーション */
+        .modal-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .modal-overlay {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-content {
+            transform: translateY(20px);
+            opacity: 0;
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        .modal-overlay.flex .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        /* フィルター選択肢のスタイル */
+        .filter-options {
+            position: absolute;
+            top: 100%; /* ボタンの真下に表示 */
+            left: 0;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+            pointer-events: none;
+            min-width: 150px; /* 最小幅を設定 */
+            padding: 8px 0; /* 上下のパディング */
+        }
+        .filter-options.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+        }
+        .filter-option-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            color: #4a5568; /* gray-700 */
+            font-size: 0.9rem;
+            transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+        }
+        .filter-option-item:hover {
+            background-color: #f0f0f0; /* gray-100 */
+            color: #2d3748; /* gray-800 */
+        }
+        .filter-option-item.selected {
+            background-color: #e2e8f0; /* blue-100 */
+            color: #2b6cb0; /* blue-700 */
+            font-weight: 600;
+        }
+        /* 検索入力フィールドとクリアボタンのコンテナ */
+        .search-input-container {
+            position: relative;
+            flex-grow: 1; /* 検索入力フィールドが利用可能なスペースを占めるように */
+        }
+        /* クリアボタンのスタイル */
+        #clearSearchButton {
+            position: absolute;
+            right: 8px; /* 検索入力フィールドの右端から少し内側 */
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #9ca3af; /* gray-400 */
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0; /* デフォルトで非表示 */
+            transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
+        }
+        #clearSearchButton:hover {
+            background-color: #e5e7eb; /* gray-200 */
+            color: #6b7280; /* gray-500 */
+        }
+        /* 検索入力フィールドにテキストがあるときにクリアボタンを表示 */
+        #searchNotesInput:not(:placeholder-shown) + #clearSearchButton,
+        #searchNotesInput:focus + #clearSearchButton {
+            opacity: 1;
+        }
+
+        /* ノートグリッドのレイアウト */
+        .notes-grid-layout {
+            grid-template-columns: repeat(1, minmax(0, 1fr)); /* モバイルでは1列 */
+        }
+        @media (min-width: 768px) { /* md */
+            .notes-grid-layout {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        @media (min-width: 1024px) { /* lg */
+            .notes-grid-layout {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        /* ノートリストのレイアウト */
+        .notes-list-layout {
+            grid-template-columns: 1fr; /* 常に1列 */
+            gap: 16px; /* gap-4と同じ */
+        }
+        .notes-list-layout .note-card {
+            width: 100%; /* 横幅いっぱいに */
+            max-width: none; /* 最大幅の制限を解除 */
+            height: auto; /* 高さを自動調整 */
+        }
+
+        /* メディアタイプ選択ドロップダウンのスタイル */
+        #mediaTypeDropdown {
+            position: absolute;
+            top: calc(100% + 8px); /* ボタンの真下に少しマージンを空けて配置 */
+            left: 0;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            z-index: 20;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+            pointer-events: none;
+            min-width: 150px;
+            padding: 8px 0;
+        }
+        #mediaTypeDropdown.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+        }
+        .media-type-option {
+            padding: 8px 16px;
+            cursor: pointer;
+            color: #4a5568;
+            font-size: 0.9rem;
+            transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+        }
+        .media-type-option:hover {
+            background-color: #f0f0f0;
+            color: #2d3748;
+        }
+
+        /* 各メディア入力アイテムのスタイル */
+        .media-input-item {
+            background-color: #f8f8f8;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            position: relative;
+        }
+        .media-input-item .media-input-label {
+            font-weight: 500;
+            font-size: 0.875rem; /* sm text size */
+            color: #4a5568;
+            margin-bottom: 6px;
+        }
+        .media-input-item input,
+        .media-input-item textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            background-color: white;
+            font-size: 0.9rem;
+            color: #2d3748;
+        }
+        .media-input-item input:focus,
+        .media-input-item textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.5); /* blue-500 focus ring */
+        }
+        .media-input-item .remove-media-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+        }
+        .media-input-item .remove-media-button:hover {
+            background-color: #fbd3d3; /* red-100 */
+            color: #e53e3e; /* red-600 */
+        }
+        /* ノートカード内のコンテンツ表示用スタイル */
+        .note-card .note-body p,
+        .note-card .note-body pre,
+        .note-card .note-body img,
+        .note-card .note-body audio,
+        .note-card .note-body video,
+        .note-card .note-body .markdown-content { /* markdown-contentにもスタイル適用 */
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+        .note-card .note-body img,
+        .note-card .note-body video {
+            max-width: 100%; /* Ensure images/videos fit within card */
+        }
+        .note-card .note-body pre {
+            white-space: pre-wrap; /* Preserve whitespace and wrap long lines */
+            word-break: break-word; /* Break long words */
+        }
+        /* Markdownコンテンツ内の要素のスタイル調整 */
+        .markdown-content h1, .markdown-content h2, .markdown-content h3,
+        .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+            font-weight: bold;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+        .markdown-content h1 { font-size: 1.5em; }
+        .markdown-content h2 { font-size: 1.3em; }
+        .markdown-content h3 { font-size: 1.1em; }
+        .markdown-content ul, .markdown-content ol {
+            list-style-position: inside;
+            margin-left: 1.5em;
+        }
+        .markdown-content li {
+            margin-bottom: 0.25em;
+        }
+        .markdown-content a {
+            color: #2b6cb0; /* blue-700 */
+            text-decoration: underline;
+        }
+        .markdown-content pre, .markdown-content code {
+            background-color: #e2e8f0; /* gray-200 */
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+        }
+        .markdown-content pre {
+            display: block;
+            padding: 1em;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen items-center justify-center p-4 sm:p-6 md:p-8 bg-gray-100">
+    <div class="w-full max-w-4xl bg-white rounded-xl shadow-lg flex flex-col h-[90vh] overflow-hidden">
+        <header class="flex items-center justify-between p-4 sm:p-5 border-b border-gray-200 bg-white shadow-sm flex-shrink-0">
+            <div class="flex items-center space-x-2 sm:space-x-4 w-full md:w-auto relative">
+                <div id="filterButton" class="filter-icon w-8 h-8 sm:w-10 sm:h-10 p-2 rounded-full bg-gray-200 flex items-center justify-center cursor-pointer hover:bg-gray-300 transition-colors duration-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-filter text-gray-600">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                    </svg>
+                </div>
+                <div id="filterOptions" class="filter-options hidden">
+                    <div class="filter-option-item selected" data-filter="both">両方</div>
+                    <div class="filter-option-item" data-filter="title">タイトルのみ</div>
+                    <div class="filter-option-item" data-filter="content">内容のみ</div>
+                </div>
+                <div class="search-input-container">
+                    <input type="text" id="searchNotesInput" placeholder="メモを検索..." class="w-full p-2 sm:p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 pr-10">
+                    <button id="clearSearchButton" class="w-6 h-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x text-gray-400">
+                            <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <button id="addNoteButton" class="header-button bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-3 sm:py-2.5 sm:px-4 rounded-lg shadow-md transition-all duration-200 transform hover:scale-105">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                </button>
+                <button id="toggleLayoutButton" class="header-button bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-3 sm:py-2.5 sm:px-4 rounded-lg shadow-md transition-all duration-200 transform hover:scale-105">
+                    <!-- カスタムSVGアイコン：グリッド表示 (2x2 squares) -->
+                    <svg id="gridIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+                        <rect x="3" y="3" width="7" height="7" rx="1" ry="1"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1" ry="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1" ry="1"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1" ry="1"/>
+                    </svg>
+                    <!-- カスタムSVGアイコン：リスト表示 (list) - 初期は非表示 -->
+                    <svg id="listIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white hidden">
+                        <rect x="3" y="3" width="18" height="4" rx="1" ry="1"/>
+                        <rect x="3" y="10" width="18" height="4" rx="1" ry="1"/>
+                        <rect x="3" y="17" width="18" height="4" rx="1" ry="1"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <main id="notesContainer" class="flex-grow p-4 sm:p-6 overflow-y-auto scrollable-content">
+            <div class="grid gap-4 notes-grid-layout" id="notesGrid">
+                <!-- Notes will be dynamically loaded here -->
+            </div>
+        </main>
+
+        <!-- メモ追加/編集モーダル -->
+        <div id="noteModal" class="modal-overlay fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 hidden">
+            <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+                <h3 id="modalTitle" class="text-xl font-semibold mb-4 text-gray-800">メモを追加</h3>
+                <input type="text" id="noteTitleInput" placeholder="タイトル" class="w-full p-2 border border-gray-300 rounded-md mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700">
+                <textarea id="noteContentInput" placeholder="メモ内容" rows="6" class="w-full p-2 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"></textarea>
+
+                <!-- メディア入力コンテナ -->
+                <div id="mediaInputsContainer" class="space-y-3 mb-4"></div>
+
+                <!-- メディア追加ボタンとドロップダウンを囲むラッパー -->
+                <div class="relative mb-4">
+                    <button id="addMediaButton" class="w-full py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors duration-200 flex items-center justify-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+                        <span>メディアを追加</span>
+                    </button>
+                    <!-- メディアタイプ選択ドロップダウン -->
+                    <div id="mediaTypeDropdown" class="hidden absolute top-full left-0 bg-white border border-gray-200 rounded-md shadow-lg z-20 mt-1 w-48 py-1">
+                        <div class="media-type-option cursor-pointer hover:bg-gray-100 px-4 py-2" data-type="image">画像</div>
+                        <div class="media-type-option cursor-pointer hover:bg-gray-100 px-4 py-2" data-type="audio">音声</div>
+                        <div class="media-type-option cursor-pointer hover:bg-gray-100 px-4 py-2" data-type="video">映像</div>
+                        <div class="media-type-option cursor-pointer hover:bg-gray-100 px-4 py-2" data-type="markdown">マークダウン</div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <button id="cancelNoteButton" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors duration-200">キャンセル</button>
+                    <button id="saveNoteButton" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 削除確認モーダル -->
+        <div id="deleteConfirmModal" class="modal-overlay fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 hidden">
+            <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">メモを削除</h3>
+                <p class="text-gray-700 mb-6">本当にこのメモを削除しますか？</p>
+                <div class="flex justify-center space-x-4">
+                    <button id="cancelDeleteButton" class="px-5 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors duration-200">キャンセル</button>
+                    <button id="confirmDeleteButton" class="px-5 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors duration-200">削除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- marked.jsを読み込み (Markdownレンダリング用) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script>
+        // DOM要素の取得
+        const addNoteButton = document.getElementById('addNoteButton');
+        const noteModal = document.getElementById('noteModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const noteTitleInput = document.getElementById('noteTitleInput');
+        const noteContentInput = document.getElementById('noteContentInput'); // メインのテキストエリア
+        const mediaInputsContainer = document.getElementById('mediaInputsContainer'); // メディア入力のコンテナ
+        const addMediaButton = document.getElementById('addMediaButton'); // メディア追加ボタン
+        const mediaTypeDropdown = document.getElementById('mediaTypeDropdown'); // メディアタイプ選択ドロップダウン
+        const mediaTypeOptions = document.querySelectorAll('#mediaTypeDropdown .media-type-option'); // ドロップダウン内の選択肢を正確に取得
+
+        const saveNoteButton = document.getElementById('saveNoteButton');
+        const cancelNoteButton = document.getElementById('cancelNoteButton');
+        const notesGrid = document.getElementById('notesGrid');
+        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+        const cancelDeleteButton = document.getElementById('cancelDeleteButton');
+        const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+        const searchNotesInput = document.getElementById('searchNotesInput');
+        const filterButton = document.getElementById('filterButton');
+        const filterOptions = document.getElementById('filterOptions');
+        const filterOptionItems = document.querySelectorAll('.filter-option-item');
+        const clearSearchButton = document.getElementById('clearSearchButton');
+        const toggleLayoutButton = document.getElementById('toggleLayoutButton');
+        const gridIcon = document.getElementById('gridIcon');
+        const listIcon = document.getElementById('listIcon');
+
+        let isEditing = false; // 編集モードかどうかのフラグ
+        let editingNoteCard = null; // 編集中のメモカードを保持
+        let currentFilter = 'both'; // 現在のフィルター設定 ('both', 'title', 'content')
+        let isGridLayout = true; // 現在のレイアウト設定 (true: グリッド, false: リスト)
+        let currentMediaElementsInModal = []; // モーダル内で動的に追加されたメディア入力要素を追跡
+
+        // モーダルを開く関数
+        const openNoteModal = (title, currentTitle = '') => {
+            modalTitle.textContent = title;
+            noteTitleInput.value = currentTitle;
+            noteModal.classList.remove('hidden');
+            // アニメーションのために少し遅延させてflexクラスを追加
+            setTimeout(() => {
+                noteModal.classList.add('flex');
+            }, 10);
+        };
+
+        // モーダルを閉じる関数
+        const closeNoteModal = () => {
+            noteModal.classList.remove('flex');
+            noteModal.classList.add('hidden');
+            noteTitleInput.value = '';
+            noteContentInput.value = ''; // メインのテキストエリアをクリア
+            mediaInputsContainer.innerHTML = ''; // メディア入力コンテナをクリア
+            currentMediaElementsInModal = []; // トラッキング配列をクリア
+            isEditing = false;
+            editingNoteCard = null;
+        };
+
+        // 削除確認モーダルを開く関数
+        const openDeleteConfirmModal = () => {
+            deleteConfirmModal.classList.remove('hidden');
+            setTimeout(() => {
+                deleteConfirmModal.classList.add('flex');
+            }, 10);
+        };
+
+        // 削除確認モーダルを閉じる関数
+        const closeDeleteConfirmModal = () => {
+            deleteConfirmModal.classList.remove('flex');
+            deleteConfirmModal.classList.add('hidden');
+            editingNoteCard = null;
+        };
+
+        /**
+         * メディア入力要素をモーダルに追加する関数
+         * @param {string} type - メディアのタイプ ('image', 'audio', 'video', 'markdown')
+         * @param {string} value - 入力フィールドの初期値 (URLまたはマークダウンテキスト)
+         */
+        const addMediaInput = (type, value = '') => {
+            // ユニークなIDを生成
+            const mediaId = `media-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+            const mediaItemDiv = document.createElement('div');
+            mediaItemDiv.classList.add('media-input-item', 'relative', 'p-3', 'rounded-lg', 'border', 'border-gray-200', 'bg-gray-50');
+            mediaItemDiv.dataset.type = type;
+            mediaItemDiv.dataset.mediaId = mediaId;
+
+            let inputElement;
+            let labelText;
+
+            // メディアタイプに応じて入力要素とラベルを設定
+            if (type === 'markdown') {
+                labelText = 'マークダウン内容';
+                inputElement = document.createElement('textarea');
+                inputElement.rows = 5;
+            } else {
+                labelText = type === 'image' ? '画像URL' : (type === 'audio' ? '音声URL' : '映像URL');
+                inputElement = document.createElement('input');
+                inputElement.type = 'url';
+            }
+
+            // Tailwind CSSクラスを適用
+            inputElement.classList.add('w-full', 'p-2', 'border', 'border-gray-300', 'rounded-md', 'focus:outline-none', 'focus:ring-2', 'focus:ring-blue-500', 'text-gray-700');
+            inputElement.placeholder = labelText;
+            inputElement.value = value;
+            inputElement.dataset.mediaInput = type; // 後で値を取得するためにマーク
+
+            // メディア入力アイテムのHTMLを構築
+            mediaItemDiv.innerHTML = `
+                <label class="media-input-label block text-sm font-medium text-gray-700 mb-1">${labelText}</label>
+                <button type="button" class="remove-media-button w-6 h-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500 hover:text-red-600">
+                        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                    </svg>
+                </button>
+            `;
+            mediaItemDiv.appendChild(inputElement); // 作成したinput/textareaをDVIに追加
+            mediaInputsContainer.appendChild(mediaItemDiv); // メディアコンテナにアイテムを追加
+
+            // 削除ボタンのイベントリスナーを設定
+            mediaItemDiv.querySelector('.remove-media-button').addEventListener('click', () => {
+                mediaItemDiv.remove(); // DOMから要素を削除
+                // トラッキング配列からも削除
+                currentMediaElementsInModal = currentMediaElementsInModal.filter(item => item.dataset.mediaId !== mediaId);
+            });
+
+            currentMediaElementsInModal.push(mediaItemDiv); // トラッキング配列に追加
+        };
+
+        /**
+         * ノートの内容をカードにレンダリングするヘルパー関数
+         * @param {HTMLElement} containerElement - 内容をレンダリングするDOM要素 (例: .note-body)
+         * @param {Array<Object>} contentParts - ノートのコンテンツ部分の配列
+         */
+        const renderNoteContent = (containerElement, contentParts) => {
+            containerElement.innerHTML = ''; // 既存の内容をクリア
+            contentParts.forEach(part => {
+                if (part.type === 'text') {
+                    const p = document.createElement('p');
+                    p.classList.add('text-sm', 'text-gray-600', 'mb-1');
+                    p.textContent = part.value;
+                    containerElement.appendChild(p);
+                } else if (part.type === 'image') {
+                    const img = document.createElement('img');
+                    img.src = part.value;
+                    img.classList.add('w-full', 'h-auto', 'rounded-md', 'object-cover', 'mt-1', 'mb-1');
+                    // 画像読み込みエラー時のフォールバック
+                    img.onerror = () => { img.src = `https://placehold.co/150x100/A0AEC0/FFFFFF?text=Image+Load+Error`; img.alt = '画像読み込みエラー'; };
+                    containerElement.appendChild(img);
+                } else if (part.type === 'audio') {
+                    const audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.src = part.value;
+                    audio.classList.add('w-full', 'mt-1', 'mb-1');
+                    containerElement.appendChild(audio);
+                } else if (part.type === 'video') {
+                    const video = document.createElement('video');
+                    video.controls = true;
+                    video.src = part.value;
+                    video.classList.add('w-full', 'h-auto', 'rounded-md', 'object-cover', 'mt-1', 'mb-1');
+                    containerElement.appendChild(video);
+                } else if (part.type === 'markdown') {
+                    const markdownHtml = marked.parse(part.value);
+                    const div = document.createElement('div');
+                    div.classList.add('markdown-content', 'text-sm', 'text-gray-700', 'bg-gray-100', 'p-2', 'rounded-md', 'mt-1', 'mb-1', 'overflow-auto');
+                    div.innerHTML = markdownHtml; // MarkdownをHTMLとして挿入
+                    // 注意: marked.jsで生成されたHTMLをinnerHTMLで挿入する場合、XSSのリスクがあるため、
+                    // 信頼できないソースからのMarkdownにはDOMPurifyなどのサニタイザーの使用を検討してください。
+                    containerElement.appendChild(div);
+
+                    // MathJaxをレンダリング
+                    if (typeof MathJax !== 'undefined') {
+                        MathJax.typesetPromise([div]).catch((err) => console.error("MathJax typesetting failed:", err));
+                    }
+                }
+            });
+        };
+
+        /**
+         * ノートカードのDOM要素を作成するヘルパー関数
+         * @param {Object} noteData - ノートデータオブジェクト
+         * @returns {HTMLElement} 作成されたノートカードのDOM要素
+         */
+        const createNoteCardDOMElement = (noteData) => {
+            const noteCard = document.createElement('div');
+            noteCard.classList.add('note-card', 'group', 'relative', 'bg-gray-50', 'p-4', 'rounded-lg', 'shadow-sm', 'border', 'border-gray-200', 'hover:shadow-md', 'transition-shadow', 'duration-200', 'cursor-pointer');
+            noteCard.dataset.id = noteData.id;
+            // contentPartsをJSON文字列としてdata属性に保存
+            noteCard.dataset.contentParts = JSON.stringify(noteData.contentParts);
+
+            noteCard.innerHTML = `
+                <h3 class="font-semibold text-gray-800 mb-2 note-title">${noteData.title}</h3>
+                <div class="note-body text-sm text-gray-600 mb-2"></div> <!-- コンテンツ表示用の新しいコンテナ -->
+                <div class="text-xs text-gray-400 mt-2 note-date">${noteData.date}</div>
+                <div class="note-actions absolute top-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button class="edit-note-button bg-blue-100 text-blue-600 hover:bg-blue-200 p-1 rounded-full flex items-center justify-center transition-colors duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil w-4 h-4"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                    </button>
+                    <button class="delete-note-button bg-red-100 text-red-600 hover:bg-red-200 p-1 rounded-full flex items-center justify-center transition-colors duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2 w-4 h-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                    </button>
+                </div>
+            `;
+            const noteBody = noteCard.querySelector('.note-body');
+            renderNoteContent(noteBody, noteData.contentParts); // noteBodyにコンテンツをレンダリング
+            return noteCard;
+        };
+
+        // ノートの保存または更新
+        saveNoteButton.addEventListener('click', () => {
+            const title = noteTitleInput.value.trim();
+            const mainContentText = noteContentInput.value.trim(); // メインのテキストエリアの内容
+
+            // コンテンツ部分の配列を作成
+            const contentParts = [];
+            if (mainContentText !== '') {
+                contentParts.push({ type: 'text', value: mainContentText });
+            }
+
+            // 動的に追加されたメディア入力からデータを収集
+            currentMediaElementsInModal.forEach(mediaItemDiv => {
+                const type = mediaItemDiv.dataset.type;
+                const value = mediaItemDiv.querySelector('input, textarea').value.trim();
+                if (value !== '') { // 値が空でなければ追加
+                    contentParts.push({ type: type, value: value });
+                }
+            });
+
+            // タイトルもコンテンツも空の場合は保存しない
+            if (title === '' && contentParts.length === 0) {
+                // ここでユーザーに何らかのフィードバックを表示することも可能
+                return;
+            }
+
+            const now = new Date();
+            const dateString = `${now.getFullYear()}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+            const noteData = {
+                id: isEditing ? editingNoteCard.dataset.id : Date.now().toString(),
+                title: title,
+                date: dateString,
+                contentParts: contentParts // 構造化されたコンテンツ配列
+            };
+
+            if (isEditing) {
+                // 既存のノートを更新
+                editingNoteCard.querySelector('.note-title').textContent = noteData.title;
+                const noteBody = editingNoteCard.querySelector('.note-body');
+                renderNoteContent(noteBody, noteData.contentParts); // コンテンツを再レンダリング
+                editingNoteCard.querySelector('.note-date').textContent = noteData.date;
+                editingNoteCard.dataset.contentParts = JSON.stringify(noteData.contentParts); // data属性も更新
+            } else {
+                // 新しいノートを作成
+                const newNoteCard = createNoteCardDOMElement(noteData);
+                notesGrid.prepend(newNoteCard); // 最新のノートを一番上に追加
+            }
+            closeNoteModal();
+            applySearchFilter(); // 保存後にフィルターを再適用
+        });
+
+        // ノート追加ボタンのイベントリスナー
+        addNoteButton.addEventListener('click', () => {
+            openNoteModal("メモを追加");
+        });
+
+        // モーダルのキャンセルボタン
+        cancelNoteButton.addEventListener('click', closeNoteModal);
+
+        // 削除確認モーダルのキャンセルボタン
+        cancelDeleteButton.addEventListener('click', closeDeleteConfirmModal);
+
+        // 削除確認モーダルの削除ボタン
+        confirmDeleteButton.addEventListener('click', () => {
+            if (editingNoteCard) {
+                editingNoteCard.remove();
+            }
+            closeDeleteConfirmModal();
+        });
+
+        // ノートカード内の編集/削除ボタンのイベント委譲
+        notesGrid.addEventListener('click', (event) => {
+            const target = event.target;
+            const noteCard = target.closest('.note-card');
+
+            if (!noteCard) return;
+
+            // 編集ボタンがクリックされた場合
+            if (target.closest('.edit-note-button')) {
+                isEditing = true;
+                editingNoteCard = noteCard;
+
+                const title = noteCard.querySelector('.note-title').textContent;
+                const contentPartsJSON = noteCard.dataset.contentParts;
+                let contentParts = [];
+                if (contentPartsJSON) {
+                    try {
+                        contentParts = JSON.parse(contentPartsJSON);
+                    } catch (e) {
+                        console.error("Failed to parse contentParts for editing:", e);
+                        // パース失敗時は古い形式のテキストコンテンツをフォールバックとして使用
+                        contentParts = [{ type: 'text', value: noteCard.querySelector('.note-body')?.textContent || '' }];
+                    }
+                } else {
+                    // data-content-partsがない古いノートの場合のフォールバック
+                    contentParts = [{ type: 'text', value: noteCard.querySelector('.note-body')?.textContent || '' }];
+                }
+
+                // モーダル内の既存メディア入力をクリア
+                mediaInputsContainer.innerHTML = '';
+                currentMediaElementsInModal = []; // トラッキング配列もクリア
+
+                // メインテキストエリアとメディア入力要素を再構築
+                let mainText = '';
+                contentParts.forEach(part => {
+                    if (part.type === 'text') {
+                        mainText += part.value + '\n\n'; // 複数のテキストパートを連結してメイン入力に
+                    } else {
+                        addMediaInput(part.type, part.value); // 各メディアパートを再構築
+                    }
+                });
+                noteContentInput.value = mainText.trim(); // メインテキストエリアに設定
+
+                openNoteModal("メモを編集", title);
+            }
+            // 削除ボタンがクリックされた場合
+            else if (target.closest('.delete-note-button')) {
+                editingNoteCard = noteCard;
+                openDeleteConfirmModal();
+            }
+        });
+
+        // 検索とフィルターを適用する関数
+        const applySearchFilter = () => {
+            const searchTerm = searchNotesInput.value.toLowerCase();
+            const allNoteCards = notesGrid.querySelectorAll('.note-card');
+
+            allNoteCards.forEach(card => {
+                const title = card.querySelector('.note-title').textContent.toLowerCase();
+                let shouldDisplay = false;
+
+                const contentPartsJSON = card.dataset.contentParts;
+                let contentParts = [];
+                if (contentPartsJSON) {
+                    try {
+                        contentParts = JSON.parse(contentPartsJSON);
+                    } catch (e) {
+                        console.error("Failed to parse contentParts for search:", e);
+                        // パース失敗時のフォールバック (念のため)
+                        contentParts = [{ type: 'text', value: card.querySelector('.note-body')?.textContent || '' }];
+                    }
+                } else {
+                     // data-content-partsがない場合のフォールバック (古いノート対応)
+                     contentParts = [{ type: 'text', value: card.querySelector('.note-body')?.textContent || '' }];
+                }
+
+                let searchableContent = '';
+                contentParts.forEach(part => {
+                    if (part.type === 'text' || part.type === 'markdown') {
+                        searchableContent += part.value.toLowerCase() + ' ';
+                    }
+                });
+
+                if (currentFilter === 'both') {
+                    shouldDisplay = title.includes(searchTerm) || searchableContent.includes(searchTerm);
+                } else if (currentFilter === 'title') {
+                    shouldDisplay = title.includes(searchTerm);
+                } else if (currentFilter === 'content') {
+                    shouldDisplay = searchableContent.includes(searchTerm);
+                }
+
+                card.style.display = shouldDisplay ? '' : 'none';
+            });
+        };
+
+        // 検索機能のイベントリスナー
+        searchNotesInput.addEventListener('input', applySearchFilter);
+
+        // フィルターボタンのイベントリスナー
+        filterButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            filterOptions.classList.toggle('hidden');
+            filterOptions.classList.toggle('active');
+        });
+
+        // フィルター選択肢のイベントリスナー
+        filterOptionItems.forEach(item => {
+            item.addEventListener('click', (event) => {
+                currentFilter = event.target.dataset.filter;
+                filterOptionItems.forEach(opt => opt.classList.remove('selected'));
+                event.target.classList.add('selected');
+                filterOptions.classList.add('hidden');
+                filterOptions.classList.remove('active');
+                applySearchFilter();
+            });
+        });
+
+        // ドキュメント全体をクリックしたときにフィルターオプションを非表示にする
+        document.addEventListener('click', (event) => {
+            // フィルターオプションを閉じる
+            if (!filterOptions.contains(event.target) && !filterButton.contains(event.target)) {
+                filterOptions.classList.add('hidden');
+                filterOptions.classList.remove('active');
+            }
+            // メディアタイプドロップダウンを閉じる
+            if (!mediaTypeDropdown.contains(event.target) && !addMediaButton.contains(event.target)) {
+                mediaTypeDropdown.classList.add('hidden');
+                mediaTypeDropdown.classList.remove('active');
+            }
+        });
+
+        // クリアボタンのイベントリスナー
+        clearSearchButton.addEventListener('click', () => {
+            searchNotesInput.value = '';
+            applySearchFilter();
+        });
+
+        // レイアウト切り替え機能のイベントリスナー
+        toggleLayoutButton.addEventListener('click', () => {
+            if (isGridLayout) {
+                notesGrid.classList.remove('notes-grid-layout');
+                notesGrid.classList.add('notes-list-layout');
+                gridIcon.classList.add('hidden');
+                listIcon.classList.remove('hidden');
+            } else {
+                notesGrid.classList.remove('notes-list-layout');
+                notesGrid.classList.add('notes-grid-layout');
+                listIcon.classList.add('hidden');
+                gridIcon.classList.remove('hidden');
+            }
+            isGridLayout = !isGridLayout;
+        });
+
+        // メディア追加ボタンのイベントリスナー
+        addMediaButton.addEventListener('click', (event) => {
+            event.stopPropagation(); // ドキュメントクリックイベントが発火しないようにする
+            mediaTypeDropdown.classList.toggle('hidden');
+            mediaTypeDropdown.classList.toggle('active');
+        });
+
+        // メディアタイプ選択肢のイベントリスナー
+        mediaTypeOptions.forEach(option => {
+            option.addEventListener('click', (event) => {
+                const mediaType = event.target.dataset.type;
+                addMediaInput(mediaType);
+                mediaTypeDropdown.classList.add('hidden'); // 選択後ドロップダウンを閉じる
+                mediaTypeDropdown.classList.remove('active');
+            });
+        });
+
+
+        // 初期サンプルノートデータ
+        const sampleNotesData = [
+            {
+                id: '1',
+                title: '今日のタスク',
+                date: '2025/05/23 10:30',
+                contentParts: [
+                    { type: 'text', value: '買い物リストを作成する。牛乳、卵、パン、野菜、果物。\n会議の資料を準備する。プレゼンテーションの最終確認。\nジムに行く。30分ランニングと筋トレ。' }
+                ]
+            },
+            {
+                id: '2',
+                title: 'アイデアメモ',
+                date: '2025/05/22 15:00',
+                contentParts: [
+                    { type: 'text', value: '新しいプロジェクトの企画。ターゲット層の分析と競合調査。\nユニークな機能のブレインストーミング。\nチームメンバーとの役割分担。' },
+                    { type: 'image', value: 'https://placehold.co/300x200/FF5733/FFFFFF?text=Idea' }
+                ]
+            },
+            {
+                id: '3',
+                title: '読書リスト',
+                date: '2025/05/21 09:45',
+                contentParts: [
+                    { type: 'text', value: '「デザイン思考」に関する書籍を読む。\n「Pythonプログラミング入門」を復習する。\n「歴史小説」を読み始める。' }
+                ]
+            },
+            {
+                id: '4',
+                title: '旅行計画',
+                date: '2025/05/20 18:15',
+                contentParts: [
+                    { type: 'markdown', value: `## 計画概要
+* **目的地**: 北海道 or 沖縄
+* **期間**: 1週間
+* **アクティビティ**:
+    * 絶景スポット巡り
+    * ご当地グルメ
+    * 温泉
+
+### 準備事項
+1.  航空券と宿泊施設の予約
+2.  観光スポットの調査
+3.  持ち物リスト作成
+
+数式例:
+インライン数式は $E=mc^2$ のように書けます。
+ディスプレイ数式は
+$$ \sum_{n=1}^\infty \frac{1}{n^2} = \frac{\pi^2}{6} $$
+のように書けます。
+` }
+                ]
+            },
+            {
+                id: '5',
+                title: 'レシピメモ',
+                date: '2025/05/19 12:00',
+                contentParts: [
+                    { type: 'text', value: '新しいカレーのレシピを試す。\n材料: 鶏肉、玉ねぎ、じゃがいも、にんじん、カレールー。\n調理手順: 炒める、煮込む。' },
+                    { type: 'audio', value: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' }
+                ]
+            },
+            {
+                id: '6',
+                title: '朝のルーティン',
+                date: '2025/05/24 07:00',
+                contentParts: [
+                    { type: 'text', value: '6:00 起床、ストレッチ\n6:30 朝食準備\n7:00 ニュースチェック' },
+                    { type: 'video', value: 'https://www.w3schools.com/html/mov_bbb.mp4' } // Example video URL
+                ]
+            }
+        ];
+
+        // 初期ロード時にサンプルノートをレンダリング
+        sampleNotesData.forEach(noteData => {
+            const newNoteCard = createNoteCardDOMElement(noteData);
+            notesGrid.appendChild(newNoteCard);
+        });
+
+        // 初期ロード時にフィルターとレイアウトを適用
+        applySearchFilter();
+    </script>
+</body>
+</html>
